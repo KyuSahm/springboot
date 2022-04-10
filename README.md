@@ -114,5 +114,14 @@
 - 클라이언트 개발자 포탈 서브 도메인은 일관성 있게 만듬
   - ``https://dev-fastcampus.co.kr``
   - ``https://developer-fastcampus.co.kr``
-
-Ch 03. 웹 개발 개론의 04. HTTP Protocol을 들을 차례
+## HTTP Protocol
+- HTTP(Hyper Text Transfer Protocol)로 RFC 2616에서 규정된 Web에서 데이터를 주고 받는 프로토콜
+- 이름에는 하이퍼텍스트 전송용 프로토콜로 정의되어 있지만, 실제로는 HTML, XML, JSON, Image, Voice, Video, JavaScript, PDF등 다양한 컴퓨터에서 다룰 수 있는 것은 모두 전송할 수 있음
+- HTTP는 TCP를 기반으로 한 REST의 특징을 모두 구현하고 있는 Web기반의 프로토콜
+- HTTP는 메시지를 주고(Request) 받는(Response) 형태의 통신 방법
+![HTTP_Communication_Method](./images/HTTP_Communication_Method.png)
+- HTTP 요청을 처리하는 8가지 Method (멱등성: 여러 번 요청해도 동일한 응답)
+![HTTP_Methods](./images/HTTP_Methods.png)
+- HTTP Status Code: 응답의 상태를 나타내는 코드
+![HTTP_Status_Code](./images/HTTP_Status_Code.png)
+![HTTP_Status_Codes](./images/HTTP_Status_Codes.png)
