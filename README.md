@@ -125,3 +125,33 @@
 - HTTP Status Code: 응답의 상태를 나타내는 코드
 ![HTTP_Status_Code](./images/HTTP_Status_Code.png)
 ![HTTP_Status_Codes](./images/HTTP_Status_Codes.png)
+# Spring Boot 시작하기
+## Spring Boot 개념
+- Spring Boot helps you to create ``stand-alone, production-grade Spring-based Applications`` that you can run. We take an optionated view of the Spring platform and third-party libraries, so that you can get started with minimum fuss. Most Sping Boot applications need ``very little Spring configuration``.
+- You can use Spring Boot to create Java applications that can be started by using ``java -jar`` or more traditional war deployments. We also provide a command line tool that runs "spring scripts".
+- Our primary goals are:
+  - Provide a radically faster and widely accessible getting-started experience for all Spring development.
+  - Be opinionated out of the box but get out of the way quickly as requirements start to diverge from the defaults.
+  - Provide a range of non-functional features that are common to large classes of projects (such as embedded servers, security, metrics, health checks, and externalized configuration).
+  - Absolutely no code generation and no requirement for XML configuration.
+- https://docs.spring.io/spring-boot/docs/2.1.x/reference/html/getting-started-introducing-spring-boot.html
+- Spring Boot는 단순히 실행되며, 프로덕션 제품 수준의 스프링 기반 어플리케이션을 쉽게 만들 수 있음
+- Spring Boot 어플리케이션에는 Spring 구성이 거의 필요하지 않음
+- ``Spring Boot java -jar로 실행하는 Java 어플리케이션``을 만들 수 있음 (tomcat를 내장)
+- 주요 장점들
+  - 어플리케이션 개발에 필수 요소들만을 모아 둠
+  - 간단한 설정으로 개발 및 커스텀이 가능
+  - 간단하고, 빠르게 어플리케이션 실행 및 배포가 가능
+  - 대규모 프로젝트에 공통적인 비 기능적 기능도 제공 (보안, 모니터링 등등)
+  - Spring에서 사용했던 불편한 설정들이 사라짐 (XML 설정 -> Annotation기반으로 구성 가능)
+  - Spring 개발에 대해 빠르고, 광범위하게 적용할 수 있는 환경
+  - 오랜 경험에서 나오는 안정적인 운영이 가능
+- Build Tool (선택가능)
+![SpringBoot_Build_Tool](./images/SpringBoot_Build_Tool.png)
+- Servlet Containers (선택가능)
+![SpringBoot_Servlet_Containers](./images/SpringBoot_Servlet_Containers.png)
+- 스프링 프로젝트 생성 방법 (Spring Initializer - https://start.spring.io)
+![Spring_Initializer](./images/Spring_Initializer.png)
+  - 프로젝트 생성 후, 다운로드 받아서 IntelliJ에서 Import하면 됨
+
+Ch04. 스프링 부트 시작하기 - 02. Hello World API를 만들어 보자  
