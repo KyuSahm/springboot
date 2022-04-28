@@ -1,4 +1,4 @@
-# Web 개론
+# Web 개발 개론
 - World Wide Web, WWW, W3은 인터넷에 연결된 컴퓨터를 통해 사람들이 정보를 공유할 수 있는 전 세계적인 정보 공간
 ## Web의 기본 3가지 요소
 - URI: Uniform Resource Identifier
@@ -153,5 +153,60 @@
 - 스프링 프로젝트 생성 방법 (Spring Initializer - https://start.spring.io)
 ![Spring_Initializer](./images/Spring_Initializer.png)
   - 프로젝트 생성 후, 다운로드 받아서 IntelliJ에서 Import하면 됨
+## Hello World API를 만들어 보기
+### Rest Client 설치하기
+- Chrome Web Store > 스토어 검색 > rest api client
+  - ``Talend API Tester - Free Edition`` 설치
+  - 설치 후, 화면 우측에 ``확장 프로그램`` 아이콘에서 해당 프로그램 선택
+### SpringBoot Project 생성하기
+- ``https://start.spring.io/``에 접속하기
+![Hello_New_Project](./images/Hello_New_Project.png)
+  - Gradle Project 선택
+  - SpringBoot 2.6.7 선택
+  - Artifact에 "hello"를 입력
+  - Packaging에 Jar를 선택
+  - Java Version에 ``11``을 선택
+  - Add Dependencies
+    - Spring Web 선택
+  - Generate 선택 후, 생성된 zip 파일을 다운로드
+    - 압축을 푼 후, ``D:\Workspace\springboot\practices\hello``로 복사
+  - ``D:\Workspace\springboot\practices\hello`` 폴더에서 ``build.gradle`` 파일을 IntelliJ로 Open
+    - IntellJ 우측 하단의 ``Show all``을 클릭하면, 현재 진행되는 상황을 볼 수 있음
+    - IntellJ 우측 상단의 ``Gradle``을 클릭하면, Jar 파일들의 Dependency들을 확인 가능
+      - 새로운 Jar를 추가했을 때, 새로고침 버튼을 눌러 ``Reload All Gradle Projects``를 수행할 수 있음
+  - ``src > main > java > com.example.hello > HelloApplication``을 선택 후, 실행
+    - 처음 실행 시, ``HelloApplication`` 선택 후, ``Ctrl + Shift + F10``
+    - 다음 부터는 Run을 할 때는 ``Shift + F10``을 누르고, Debug할 때는 ``Shift + F9``을 누르면 됨
+  - 만약 서버의 Port를 변경하고 싶다면?
+    - ``src > main > resources > application.properties``에서 ``server.port=9090``을 입력
+- Controller 클래스 작성
+  - ``com.example.hello`` 아래에 ``controller`` 패키지 생성
+  - 해당 패키지에서 새로운 클래스 ``ApiController`` 생성
+  - 클래스명 위에 ``@RestController`` Annotation을 추가해서 Bean으로 등록
+  - 클래스명 위에 ``@RequestMapping("/api")`` Annotation을 추가해서 URL을 맵핑시킴
+  - ``hello()`` 메소드를 작성하고, ``@GetMapping("/hello")``을 통해 Get Method와 URL을 명시
+    - 해당 메소드는 ``http://localhost:9090/api/hello`` URL에 맵핑
+```java
+package com.example.hello.controller;
 
-Ch04. 스프링 부트 시작하기 - 02. Hello World API를 만들어 보자  
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api")
+public class ApiController {
+    @GetMapping("/hello")
+    public String hello() {
+        return "hello spring boot!";
+    }
+}
+```
+- Talend API Tester로 테스트
+![Hello_Talend_Request](./images/Hello_Talend_Request.png)    
+  - 왼쪽 하단의 ``+ Project``를 클릭하여 새로운 프로젝트 생성
+  - ``Add a request``를 이용해서 새로운 Request 생성: Request 명을 지정
+  - ``Open a request``를 이용해서 해당 Request를 Open 
+  - Method를 선택한 후, URI를 입력해서 Send해서 결과값을 확인
+  - 서버에서 결과값을 문자열로 Return
+    - Response Header의 Content-type이 ``Content-Type:	text/plain;charset=UTF-8``
