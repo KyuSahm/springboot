@@ -1,3 +1,8 @@
+# IntelliJ 단축키 팁
+- 코드 자동완성: Ctrl + Shift
+- 어플리케이션 실행
+  - XXXApplication 클래스 선택 후, ``Ctrl + Shift + F10``
+  - 다음 부터는 Run 시, ``Shift + F10``, Debug 시, ``Shift + F9``
 # Web 개발 개론
 - World Wide Web, WWW, W3은 인터넷에 연결된 컴퓨터를 통해 사람들이 정보를 공유할 수 있는 전 세계적인 정보 공간
 ## Web의 기본 3가지 요소
@@ -175,8 +180,6 @@
     - IntellJ 우측 상단의 ``Gradle``을 클릭하면, Jar 파일들의 Dependency들을 확인 가능
       - 새로운 Jar를 추가했을 때, 새로고침 버튼을 눌러 ``Reload All Gradle Projects``를 수행할 수 있음
   - ``src > main > java > com.example.hello > HelloApplication``을 선택 후, 실행
-    - 처음 실행 시, ``HelloApplication`` 선택 후, ``Ctrl + Shift + F10``
-    - 다음 부터는 Run을 할 때는 ``Shift + F10``을 누르고, Debug할 때는 ``Shift + F9``을 누르면 됨
   - 만약 서버의 Port를 변경하고 싶다면?
     - ``src > main > resources > application.properties``에서 ``server.port=9090``을 입력
 - Controller 클래스 작성
@@ -210,3 +213,120 @@ public class ApiController {
   - Method를 선택한 후, URI를 입력해서 Send해서 결과값을 확인
   - 서버에서 결과값을 문자열로 Return
     - Response Header의 Content-type이 ``Content-Type:	text/plain;charset=UTF-8``
+## GET API
+![GET_Properties](./images/GET_Properties.png)
+- Annotation
+  - ``@GetMapping("/hello")``: ``@GetMapping(path = "/hello")``와 동일
+  - ``@RequestMapping(path = "/hello", method = RequestMethod.GET)``: RequestMapping은 모든 메소드(GET, POST, PUT, DELETE, PATCH, HEAD...)에 사용가능하므로, method를 명시해야 함
+- Path Variable
+  - ``@GetMapping(path = "/path-variable/{name}")``처럼, URI의 Path값이 변함 
+  - 메소드의 인자에 대해서 ``@PathVariable`` annotation으로 명시
+  - 제한 사항: ``@GetMapping``의 ``{ }``안에 입력한 값과 ``@PathVariable``의 인자의 변수명이 동일해야함
+    - 다르게 사용하고 싶은 경우, ``@PathVariable``의 name 속성을 이용하여 명시 가능
+- Query Parameter
+  - URI의 ``?`` 뒤에 위치하는 ``key=value`` 형태의 값들
+  - 여러 개의 값들은 ``&`` 연산자를 이용해서 연결
+  - Controller에서 인자 처리 방법
+    - Key 별로 받는 방법
+      - ``@RequestParam 변수타입 key`` 형태로 개별적으로 key에 해당하는 변수를 선언
+      - 변수가 많은 경우에 적용하기 힘듬
+    - Map를 사용하는 방법
+      - ``@RequestParam Map<String, String> ``을 통해서 key, value 형태로 받음
+    - DTO를 선언해서 사용하는 방법: 가장 일반적인 방법
+      - ``UserRequest userRequest``처럼, ``@RequestParam``없이 사용
+      - Return type을 DTO로 사용하는 경우, JSON 형태로 전달 
+```java
+package com.example.hello.controller;
+
+@RestController
+@RequestMapping("/api/get")
+public class GetApiController {
+    @GetMapping(path = "/hello")  // http://localhost:9090/api/get/hello
+    public String hello() {
+        return "hello";
+    }
+
+    @RequestMapping(path = "/hi", method = RequestMethod.GET) // http://localhost:9090/api/get/hi
+    public String hi() {
+        return "hi";
+    }
+
+    // http://localhost:9090/api/get/path-variable/{name}
+    @GetMapping(path = "/path-variable/{name}")
+    public String pathVariable(@PathVariable String name) {
+        System.out.println("PathVariable : " + name);
+        return name;
+    }
+
+    // http://localhost:9090/api/get/path-variable2/{name}
+    @GetMapping(path = "/path-variable2/{id}")
+    public String pathVariable2(@PathVariable(name = "id") String pathName) {
+        System.out.println("PathVariable2 : " + pathName);
+        return pathName;
+    }
+
+    // http://localhost:90900/api/get/query-param?user=steve&email=steve@gmail.com&age=30
+    @GetMapping(path = "/query-param")
+    public String queryParam(@RequestParam Map<String, String> queryParams) {
+        StringBuilder sb = new StringBuilder();
+        queryParams.entrySet().forEach(entry -> {
+            System.out.println("key: " + entry.getKey() + " value: " + entry.getValue());
+            sb.append(entry.getKey() + "=" + entry.getValue() + "\n");
+        });
+        return sb.toString();
+    }
+
+    // http://localhost:90900/api/get/query-param02?user=steve&email=steve@gmail.com&age=30
+    @GetMapping(path = "/query-param02")
+    public String queryParam02(@RequestParam String name, @RequestParam String email, @RequestParam int age) {
+        return name + "," + email + "," + age;
+    }
+
+    // http://localhost:90900/api/get/query-param03?user=steve&email=steve@gmail.com&age=30
+    @GetMapping(path = "/query-param03")
+    public String queryParam03(UserRequest userRequest) {
+        return userRequest.toString();
+    }
+}
+
+package com.example.hello.dto;
+
+public class UserRequest {
+    private String name;
+    private String email;
+    private int age;
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public void setAge(int age) {
+        this.age = age;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    @Override
+    public String toString() {
+        return "UserRequest{" +
+                "name='" + name + '\'' +
+                ", email='" + email + '\'' +
+                ", age=" + age +
+                '}';
+    }
+}
+```
