@@ -1,8 +1,17 @@
 # IntelliJ 단축키 팁
-- 코드 자동완성: Ctrl + Shift
+- 코드 자동완성: ``Ctrl + Shift``
 - 어플리케이션 실행
   - XXXApplication 클래스 선택 후, ``Ctrl + Shift + F10``
   - 다음 부터는 Run 시, ``Shift + F10``, Debug 시, ``Shift + F9``
+- Code Generate for Constructor, Getter, Setter, toString etc: ``Alt + Ins``
+- Settings 창 띄우기: ``Ctrl + Alt + s``
+# IntelliJ 설정 팁
+- 실행 시, ``Run``창의 한글이 깨지는 문제 해결 법
+  - [ Ctrl+Shift+A ] 누르고 vm을 검색하고 [Edit Custom VM Options...] 클릭
+  - ``-Dfile.encoding=UTF-8`` 추가
+  - IntelliJ Restart 
+
+출처: https://treasurebear.tistory.com/55 [나를 남기다]  
 # Web 개발 개론
 - World Wide Web, WWW, W3은 인터넷에 연결된 컴퓨터를 통해 사람들이 정보를 공유할 수 있는 전 세계적인 정보 공간
 ## Web의 기본 3가지 요소
@@ -327,6 +336,162 @@ public class UserRequest {
                 ", email='" + email + '\'' +
                 ", age=" + age +
                 '}';
+    }
+}
+```
+## POST API
+![POST_Properties](./images/POST_Properties.png)
+### JSON
+- DataType
+  - string
+  - number
+  - boolean
+  - object: ``{ }``
+  - array: ``[ ]``
+- 표현 방식은 일반적으로 snake case 형태로 표현: 단어 구분 시, ``_``를 사용
+  - camel case 형태로 사용할 수도 있음
+```json
+// user 상세 정보
+{
+  "phone_number": "010-1111-2222",  // "phoneNumber": "value2"
+  "age": 10,
+  "is_agree": false,
+  "account": {
+    "email": "gusami@gmail.com",
+    "password": "1234"
+  }
+}
+
+// users를 조회하는 경우
+{
+  "user_list": [
+    {
+      "account": "abcd",
+      "password": "1235"
+    },
+    {
+      "account": "aaaaa",
+      "password": "1234"
+    },
+    {
+      "account": "bbbbb",
+      "password": "2wee"
+    }
+  ]
+}
+```
+- Annotation
+  - ``@PostMapping("/post")``: ``@PostMapping(path = "/post")``와 동일
+  - ``@RequestMapping(path = "/post", method = RequestMethod.POST)``
+    - RequestMapping은 모든 메소드(GET, POST, PUT, DELETE, PATCH, HEAD...)에 사용가능
+    - method를 명시해야 함
+- Request Body를 읽는 법
+  - Map를 사용하는 방법
+    - ``@RequestBody Map<String, Object> ``을 통해서 key, value 형태로 받음
+  - DTO를 사용하는 방법
+    - ``@RequestBody PostRequestDTO postRequestDTO``처럼 객체에 맵핑된 값을 받음
+    - DTO의 변수명이 client request body의 json의 property key와 일치하여야 함
+- 실습 예제: client가 snake case의 property key값을 가지고, DTO는 camel case인 경우
+  - 설정을 하지 않으면 null값이 읽힘
+  - 해결 방법 01
+    - 각 필드마다 ``@JsonProperty("phone_number")``처럼 request의 property key값을 명시
+    - ``private String OTP;``처럼 필드가 약어인 경우에도 사용 가능
+  - 해결 방법 02
+    - ``@JsonNaming(PropertyNamingStrategy.SnakeCaseStrategy.class)``처럼 Class 전체에 명시
+```json
+// Client Request Body
+{
+  "account": "user01",
+  "email": "gusami@gmail.com",
+  "address": "서울시 하계동",
+  "password": "abcd",
+  "phone_number": "010-1111-2222",
+  "OTP": "12345"
+}
+```
+```java
+package com.example.post.controller;
+....
+@RestController
+@RequestMapping("/api")
+public class PostApiController {
+    @PostMapping("/post")
+    public void post(@RequestBody Map<String, Object> requestData) {
+        requestData.entrySet().forEach(item -> {
+            System.out.println("key: " + item.getKey() + " value: " + item.getValue());
+        });
+    }
+
+    @PostMapping("/post-dto")
+    public void postWithDTO(@RequestBody PostRequestDTO postRequestDTO) {
+        System.out.println(postRequestDTO);
+    }
+}
+
+
+package com.example.post.dto;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public class PostRequestDTO {
+    private String account;
+    private String email;
+    private String address;
+    private String password;
+    @JsonProperty("phone_number") // request body의 Property의 key가 "phone_number"
+    private String phoneNumber;
+    @JsonProperty("OTP") // request body의 Property의 key가 "OTP"
+    private String OTP;
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    @Override
+    public String toString() {
+        return "PostRequestDTO{" +
+                "account='" + account + '\'' +
+                ", email='" + email + '\'' +
+                ", address='" + address + '\'' +
+                ", password='" + password + '\'' +
+                ", phoneNumber='" + phoneNumber + '\'' +
+                ", OTP='" + OTP + '\'' +
+                '}';
+    }
+
+    public void setAccount(String account) {
+        this.account = account;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public String getAccount() {
+        return account;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public String getPassword() {
+        return password;
     }
 }
 ```
