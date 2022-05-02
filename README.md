@@ -227,23 +227,24 @@ public class ApiController {
 - Annotation
   - ``@GetMapping("/hello")``: ``@GetMapping(path = "/hello")``와 동일
   - ``@RequestMapping(path = "/hello", method = RequestMethod.GET)``: RequestMapping은 모든 메소드(GET, POST, PUT, DELETE, PATCH, HEAD...)에 사용가능하므로, method를 명시해야 함
-- Path Variable
-  - ``@GetMapping(path = "/path-variable/{name}")``처럼, URI의 Path값이 변함 
-  - 메소드의 인자에 대해서 ``@PathVariable`` annotation으로 명시
-  - 제한 사항: ``@GetMapping``의 ``{ }``안에 입력한 값과 ``@PathVariable``의 인자의 변수명이 동일해야함
-    - 다르게 사용하고 싶은 경우, ``@PathVariable``의 name 속성을 이용하여 명시 가능
-- Query Parameter
-  - URI의 ``?`` 뒤에 위치하는 ``key=value`` 형태의 값들
-  - 여러 개의 값들은 ``&`` 연산자를 이용해서 연결
-  - Controller에서 인자 처리 방법
-    - Key 별로 받는 방법
-      - ``@RequestParam 변수타입 key`` 형태로 개별적으로 key에 해당하는 변수를 선언
-      - 변수가 많은 경우에 적용하기 힘듬
-    - Map를 사용하는 방법
-      - ``@RequestParam Map<String, String> ``을 통해서 key, value 형태로 받음
-    - DTO를 선언해서 사용하는 방법: 가장 일반적인 방법
-      - ``UserRequest userRequest``처럼, ``@RequestParam``없이 사용
-      - Return type을 DTO로 사용하는 경우, JSON 형태로 전달 
+- Request 전달 방법  
+  - 방법1: Path Variable
+    - ``@GetMapping(path = "/path-variable/{name}")``처럼, URI의 Path값이 변함 
+    - 메소드의 인자에 대해서 ``@PathVariable`` annotation으로 명시
+    - 제한 사항: ``@GetMapping``의 ``{ }``안에 입력한 값과 ``@PathVariable``의 인자의 변수명이 동일해야함
+      - 다르게 사용하고 싶은 경우, ``@PathVariable``의 name 속성을 이용하여 명시 가능
+  - 방법2: Query Parameter
+    - URI의 ``?`` 뒤에 위치하는 ``key=value`` 형태의 값들
+    - 여러 개의 값들은 ``&`` 연산자를 이용해서 연결
+    - Controller에서 인자 처리 방법
+      - Key 별로 받는 방법
+        - ``@RequestParam 변수타입 key`` 형태로 개별적으로 key에 해당하는 변수를 선언
+        - 변수가 많은 경우에 적용하기 힘듬
+      - Map를 사용하는 방법
+        - ``@RequestParam Map<String, String> ``을 통해서 key, value 형태로 받음
+      - DTO를 선언해서 사용하는 방법: 가장 일반적인 방법
+        - ``UserRequest userRequest``처럼, ``@RequestParam``없이 사용
+        - Return type을 DTO로 사용하는 경우, JSON 형태로 전달 
 ```java
 package com.example.hello.controller;
 
@@ -653,3 +654,42 @@ public class CarDTO {
     }
 }
 ```
+## DELETE API
+![DELETE_Properties](./images/DELETE_Properties.png)
+- Resource를 삭제 시, 사용
+  - 멱등성이 성립
+  - 삭제할 데이타가 없더라도, 200 OK를 응답: 멱등성이 성립하므로
+- Annotation
+  - ``@DeleteMapping("/delete")``: ``@DeleteMapping(path = "/delete")``와 동일
+  - ``@RequestMapping(path = "/delete", method = RequestMethod.DELETE)``: RequestMapping은 모든 메소드(GET, POST, PUT, DELETE, PATCH, HEAD...)에 사용가능하므로, method를 명시해야 함
+- Request 전달 방법  
+  - 방법1: Path Variable (일반적인 방법)
+    - ``@DeleteMapping("/delete/{userId}")``처럼, URI의 Path값이 변함 
+    - 메소드의 인자에 대해서 ``@PathVariable`` annotation으로 명시
+    - 제한 사항: ``@DeleteMapping``의 ``{ }``안에 입력한 값과 ``@PathVariable``의 인자의 변수명이 동일해야함
+      - 다르게 사용하고 싶은 경우, ``@PathVariable``의 name 속성을 이용하여 명시 가능
+  - 방법2: Query Parameter
+    - URI의 ``?`` 뒤에 위치하는 ``key=value`` 형태의 값들
+    - 여러 개의 값들은 ``&`` 연산자를 이용해서 연결
+    - Controller에서 인자 처리 방법
+      - Key 별로 받는 방법 (일반적인 방법)
+        - ``@RequestParam 변수타입 key`` 형태로 개별적으로 key에 해당하는 변수를 선언
+        - 변수가 많은 경우에 적용하기 힘듬
+      - Map를 사용하는 방법 (일반적이지 않음)
+        - ``@RequestParam Map<String, String> ``을 통해서 key, value 형태로 받음        
+      - DTO를 선언해서 사용하는 방법 (일반적이지 않음)
+        - ``UserRequest userRequest``처럼, ``@RequestParam``없이 사용
+        - Return type을 DTO로 사용하는 경우, JSON 형태로 전달
+```java
+package com.example.delete.controller;
+......
+@RestController
+@RequestMapping("/api")
+public class DeleteApiController {
+    @DeleteMapping("/delete/{userId}")
+    public void delete(@PathVariable String userId, @RequestParam String account) {
+        System.out.println(userId);
+        System.out.println(account);
+    }
+}
+```         
