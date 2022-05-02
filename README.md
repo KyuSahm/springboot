@@ -391,13 +391,14 @@ public class UserRequest {
   - DTO를 사용하는 방법
     - ``@RequestBody PostRequestDTO postRequestDTO``처럼 객체에 맵핑된 값을 받음
     - DTO의 변수명이 client request body의 json의 property key와 일치하여야 함
+      - 일치하지 않는 경우, Jackson 또는 gson library를 사용해서 맵핑 시킴
 - 실습 예제: client가 snake case의 property key값을 가지고, DTO는 camel case인 경우
   - 설정을 하지 않으면 null값이 읽힘
   - 해결 방법 01
     - 각 필드마다 ``@JsonProperty("phone_number")``처럼 request의 property key값을 명시
     - ``private String OTP;``처럼 필드가 약어인 경우에도 사용 가능
   - 해결 방법 02
-    - ``@JsonNaming(PropertyNamingStrategy.SnakeCaseStrategy.class)``처럼 Class 전체에 명시
+    - ``@JsonNaming(value = PropertyNamingStrategy.SnakeCaseStrategy.class)``처럼 Class 전체에 명시: Deprecated된 방법
 ```json
 // Client Request Body
 {
@@ -492,6 +493,163 @@ public class PostRequestDTO {
 
     public String getPassword() {
         return password;
+    }
+}
+```
+## PUT API
+![PUT_Properties](./images/PUT_Properties.png)
+- Resource가 없으면 생성하고, 있으면 기존 데이터를 업데이트 처리
+  - 멱등성이 성립
+- Annotation
+  - ``@PutMapping("/put")``: ``@PutMapping(path = "/put")``와 동일
+  - ``@RequestMapping(path = "/put", method = RequestMethod.PUT)``
+    - RequestMapping은 모든 메소드(GET, POST, PUT, DELETE, PATCH, HEAD...)에 사용가능
+    - method를 명시해야 함
+- Request Body를 읽는 법
+  - DTO를 사용하는 방법
+    - ``@RequestBody PutRequestDTO putRequestDTO``처럼 객체에 맵핑된 값을 받음
+    - DTO의 변수명이 client request body의 json의 property key와 일치하여야 함
+      - 일치하지 않는 경우, Jackson 또는 gson library를 사용해서 맵핑 시킴
+- 실습 예제: client가 snake case의 property key값을 가지고, DTO는 camel case인 경우
+  - 설정을 하지 않으면 null값이 읽힘
+  - 해결 방법 01
+    - 각 필드마다 ``@JsonProperty("phone_number")``처럼 request의 property key값을 명시
+    - ``private String OTP;``처럼 필드가 약어인 경우에도 사용 가능
+  - 해결 방법 02
+    - ``@JsonNaming(value = PropertyNamingStrategy.SnakeCaseStrategy.class)``처럼 Class 전체에 명시: Deprecated된 방법
+```json
+// Client Request Header
+Content-Type: application/json
+// Client Request Body
+{
+  "name": "gusami",
+  "age": 10,
+  "car_list": [
+    { 
+      "name": "BMW",
+      "car_number": "86노 1234"
+    },
+    { 
+      "name": "Benz",
+      "car_number": "43호 4321"
+    }
+  ]
+}
+```
+```json
+// Controller에서 DTO object를 Return하면, 알아서 CamelCase에서 snake case로 변환해서 내려감
+// Client Response Header
+Content-Type:	application/json
+// Client Response Body
+{
+  "name": "gusami",
+  "age": 10,
+  "car_list":[
+    {
+      "name": "BMW",
+      "car_number": "86노 1234"
+    },
+    {
+      "name": "Benz",
+      "car_number": "43호 4321"
+    }
+  ]
+}
+```
+```java
+package com.example.put.controller;
+......
+@RestController
+@RequestMapping("/api")
+public class PutApiController {
+    @PutMapping("/put")
+    public PutRequestDTO put(@RequestBody PutRequestDTO putRequestDTO) {
+        System.out.println(putRequestDTO);
+
+        return putRequestDTO;
+    }
+
+    @PutMapping("/put/{userId}")
+    public PutRequestDTO put(@RequestBody PutRequestDTO putRequestDTO,
+                             @PathVariable(name = "userId") Long id) {
+        System.out.println(putRequestDTO);
+        System.out.println(id);
+        return putRequestDTO;
+    }
+}
+
+package com.example.put.dto;
+.....
+@JsonNaming(value = PropertyNamingStrategy.SnakeCaseStrategy.class)
+public class PutRequestDTO {
+    private String name;
+    private int age;
+    private List<CarDTO> carList;
+
+    public String getName() {
+        return name;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public List<CarDTO> getCarList() {
+        return carList;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setAge(int age) {
+        this.age = age;
+    }
+
+    public void setCarList(List<CarDTO> carList) {
+        this.carList = carList;
+    }
+
+    @Override
+    public String toString() {
+        return "PutRequestDTO{" +
+                "name='" + name + '\'' +
+                ", age=" + age +
+                ", carList=" + carList +
+                '}';
+    }
+}
+
+
+package com.example.put.dto;
+
+public class CarDTO {
+    private String name;
+    @JsonProperty("car_number")
+    private String carNumber;
+
+    public String getName() {
+        return name;
+    }
+
+    public String getCarNumber() {
+        return carNumber;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setCarNumber(String carNumber) {
+        this.carNumber = carNumber;
+    }
+
+    @Override
+    public String toString() {
+        return "CarDTO{" +
+                "name='" + name + '\'' +
+                ", carNumber='" + carNumber + '\'' +
+                '}';
     }
 }
 ```
