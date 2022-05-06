@@ -692,4 +692,356 @@ public class DeleteApiController {
         System.out.println(account);
     }
 }
-```         
+```
+## Response를 내려주는 다양한 방법
+### 문자열로 Response하기
+- 서버
+```java
+package com.example.response.controller;
+
+@RestController
+@RequestMapping("/api")
+public class ApiController {
+    @GetMapping("/text")
+    public String text(@RequestParam String account) {
+        return account;
+    }
+}
+```
+- 클라이언트
+![Response_Text](./images/Response_Text.png)
+  - ``Content-Type: text/plain;charset=UTF-8``로 응답: 기본 encoding은 UTF-8임
+### JSON로 Response하기
+- Client로 내려가는 JSON의 문자열의 기본 인코딩은 "UTF-8"
+- Client의 json 문자열 Request가 오면, 서버에서는 Object Mapper에 의해 DTO object로 바뀜
+  - JSON 문자열 Request -> Object Mapper -> DTO Object
+- 서버에서 Response가 DTO object로 전달하면, Object Mapper를 거쳐 json 문자열로 변환되어 Client로 전달
+  - DTO Object -> Object Mapper -> JSON 문자열 Response
+- 서버  
+```java
+package com.example.response.controller;
+
+@RestController
+@RequestMapping("/api")
+public class ApiController {
+    @PostMapping("/json")
+    public User json(@RequestBody User user) {
+        return user;
+    }
+}
+
+package com.example.response.dto;
+
+public class User {
+    private String name;
+    private int age;
+    private String phoneNumber;
+    private String address;
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "name='" + name + '\'' +
+                ", age=" + age +
+                ", phoneNumber='" + phoneNumber + '\'' +
+                ", address='" + address + '\'' +
+                '}';
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setAge(int age) {
+        this.age = age;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+}
+```
+- 클라이언트
+![Response_JSON](./images/Response_JSON.png)
+  - ``Content-Type:	application/json``로 응답: 기본 encoding은 UTF-8임
+- Snake case(client)와 Camel case(Server DTO) 변환
+  - 해결 방법 01: 해당 필드에 ``@JsonProperty("phone_number")``처럼 request의 property key값을 직접 명시
+    - ``private String OTP;``처럼 필드가 약어인 경우에도 사용 가능
+  - 해결 방법 02
+    - ``@JsonNaming(value = PropertyNamingStrategy.SnakeCaseStrategy.class)``처럼 Class 전체에 명시: Deprecated된 방법
+### ResponseEntity<T>로 Response하기
+- 제일 선호되는 방법
+- 응답되는 값들을 사용자의 입맛에 맞게 커스터마이징이 가능함
+- HTTP Status code를 명시할 수 있음
+  - Put Method의 경우, Create/Update에 사용 가능하고 Create 성공 시 일반적으로 201을 응답
+- Response Header 값도 추가할 수 있음
+- Response Body에 데이터를 넣어 줄 수 있음
+- Server
+```java
+package com.example.response.controller;
+
+@RestController
+@RequestMapping("/api")
+public class ApiController {
+    @PutMapping("/put")
+    public ResponseEntity<User> put(@RequestBody User user) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(user);
+    }
+}
+
+package com.example.response.dto;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public class User {
+    private String name;
+    private int age;
+    @JsonProperty("phone_number")
+    private String phoneNumber;
+    private String address;
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "name='" + name + '\'' +
+                ", age=" + age +
+                ", phoneNumber='" + phoneNumber + '\'' +
+                ", address='" + address + '\'' +
+                '}';
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setAge(int age) {
+        this.age = age;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+}
+```
+- 클라이언트
+![Response_ResponseEntity](./images/Response_ResponseEntity.png)  
+### HTML Page을 Response하기
+- ``@RestController``가 아닌 ``@Controller``로 Controller를 Annotation해야 함
+- 메소드를 ``@RequestMapping``로 Annotation해야 함
+- return 값이 문자열인 경우, html 파일이름이라 생각하고, ``src/resource/static`` 폴더에 해당 html 파일을 찾아감
+- 서버
+```java
+package com.example.response.controller;
+
+@Controller
+public class PageController {
+    @RequestMapping("/main")
+    public String main() {
+        return "main.html";
+    }
+}
+```
+```html
+<!-- src/resources/static/main.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+Main Html Spring Boot
+</body>
+</html>
+```
+- 클라이언트
+![Response_HTML](./images/Response_HTML.png)
+![Response_HTML](./images/Response_HTML2.png)
+#### @Controller에서 JSON을 내려주기
+- ``@Controller``은 일반적으로 HTML을 내려주는 용도로 사용
+- ``@ResponseBody`` Annotation을 통해서 DTO를 JSON형태로 내려 줄 수도 있음
+- 서버
+```java
+package com.example.response.controller;
+
+@Controller
+public class PageController {    
+    @ResponseBody
+    @GetMapping("/user")
+    public User user() {
+        var user = new User();
+        user.setName("KyuSham Kim");
+        user.setAddress("서울시 하계동");
+        return user;
+    }
+}
+
+package com.example.response.dto;
+
+public class User {
+    private String name;
+    private Integer age;
+    @JsonProperty("phone_number")
+    private String phoneNumber;
+    private String address;
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "name='" + name + '\'' +
+                ", age=" + age +
+                ", phoneNumber='" + phoneNumber + '\'' +
+                ", address='" + address + '\'' +
+                '}';
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setAge(Integer age) {
+        this.age = age;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public Integer getAge() {
+        return age;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+}
+```
+- 클라이언트
+![Response_JSON2](./images/Response_JSON2.png)
+  - setXXX()로 명시하지 않은 값들은 null값이 내려감
+- 서버에서 Response할 때, Null값의 필드가 내려가지 않도록 설정 가능
+  - ``@JsonInclude(JsonInclude.Include.NON_NULL)``사용
+  - 다양한 옵션을 통해 빈문자열도 내려가지 않도록 설정 가능
+- 서버  
+```java
+package com.example.response.controller;
+
+@Controller
+public class PageController {    
+    @ResponseBody
+    @GetMapping("/user")
+    public User user() {
+        var user = new User();
+        user.setName("KyuSham Kim");
+        user.setAddress("서울시 하계동");
+        return user;
+    }
+}
+
+package com.example.response.dto;
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class User {
+    private String name;
+    private Integer age;
+    @JsonProperty("phone_number")
+    private String phoneNumber;
+    private String address;
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "name='" + name + '\'' +
+                ", age=" + age +
+                ", phoneNumber='" + phoneNumber + '\'' +
+                ", address='" + address + '\'' +
+                '}';
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setAge(Integer age) {
+        this.age = age;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public Integer getAge() {
+        return age;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+}
+```
+- 클라이언트: null값 필드는 내려오지 않음
+![Response_JSON2](./images/Response_JSON2.png)
