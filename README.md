@@ -1045,3 +1045,90 @@ public class User {
 ```
 - 클라이언트: null값 필드는 내려오지 않음
 ![Response_JSON2](./images/Response_JSON2.png)
+## Object Mapper
+- JSON 문자열을 Java Object로 변환 또는 Java Object를 JSON 문자열로 변환
+- controller에서 JSON 문자열의 Request를 Java Object로 변환 (자동)
+- controller에서 Java Object를 JSON 문자열의 Response로 변환 (자동)
+- 사용 방법
+  - Object Mapper가 Java Object를 JSON 문자열로 변경 시, 필드에 대한 getXXX() 메소드를 사용
+    - Java Class에 필드에 대한 getXXX()를 정의해야 함
+    - 필드가 아닌 별도의 getXXX() 메소드를 정의하면 에러가 발생
+      - 메소드 이름에 get 접두어를 빼고 정의해야함
+  - Object Mapper가 JSON 문자열을 Java Object로 변경 시, Default 생성자를 사용
+    - Java Class에 Default 생성자를 정의해야 함    
+```java
+package com.example.objectmapper;
+
+import com.example.objectmapper.dto.User;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+class ObjectMapperApplicationTests {
+
+	@Test
+	void contextLoads() throws JsonProcessingException {
+		// Text 형태의 JSON -> Java Object
+        // Java Object -> Text 형태의 JSON
+		var objectMapper = new ObjectMapper();
+
+		// object -> json text
+		var user = new User("KyuSham", 45, "010-2222-3333");
+		var text = objectMapper.writeValueAsString(user);
+		System.out.println(text);
+
+		// json text -> object
+		var objectUser = objectMapper.readValue(text, User.class);
+		System.out.println(objectUser);
+		// json text -> object
+	}
+}
+
+package com.example.objectmapper.dto;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public class User {
+    private String name;
+    private int age;
+    @JsonProperty("phone_number")
+    private String phoneNumber;
+
+    public User() {
+    }
+
+    public User(String name, int age, String phoneNumber) {
+        this.name = name;
+        this.age = age;
+        this.phoneNumber = phoneNumber;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    //public User getDefaultUser() {
+    public User defaultUser() {
+        return new User("Default", 0, "010-1111-1111");
+    }
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "name='" + name + '\'' +
+                ", age=" + age +
+                ", phoneNumber='" + phoneNumber + '\'' +
+                '}';
+    }
+}
+```       
