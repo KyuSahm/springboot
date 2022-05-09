@@ -1132,7 +1132,8 @@ public class User {
     }
 }
 ```
-# Spring의 핵심
+# Spring Internal
+## Spring의 핵심
 - Spring 1.0 Version은 2004년 3월 출시
   - 20년 가까이 자바 엔터프라이즈 에플리케이션 개발의 최고의 자리를 수성
 - Spring Framework의 구성은 20여 가지 모듈로 구성
@@ -1149,4 +1150,69 @@ public class User {
 - AOP
   - AOP를 사용하여 로깅, 트랜잭션 관리, Security에서의 적용 등 AspectJ와 같이 완벽하게 구현된 AOP와 통합하여 사용 가능
 - Spring의 특징
-![Spring_Core](./images/Spring_Core.png)  
+![Spring_Core](./images/Spring_Core.png)
+## IoC/DI 
+- IoC (Inversion Of Control)
+  - Spring에서는 일반적인 Java 객체를 new로 생성하여 개발자가 관리하는 것이 아닌 Spring Container에 모두 맡김
+  - 즉, 개발자에서 프레임워크로 객체 관리 제어의 권한이 넘어 갔음으로 ``제어의 역전``이라고 함
+- DI (Dependency Injection)의 장점
+  - 객체들간의 의존성으로부터 격리시켜 코드 테스트에 용이함
+  - DI를 통하여 불가능한 상황을 Mock와 같은 기술을 통하여 안정적으로 테스트가 가능함
+  - 코드를 확장하거나 변경할 때 영향을 최소화함 (추상화)
+  - 순환참조를 막을 수 있음
+- 생성자를 통한 Dependency Injection 실습
+```java
+package com.company.ioc;
+...
+public class Main {
+    public static void main(String[] args) {
+        String url = "www.naver.com/books/it?page=10&size=20&name=spring-boot";
+
+        try {
+            Encoder encoder = new Encoder(new UrlEncoder());
+            String urlResult = encoder.encode(url);
+            System.out.println(urlResult);
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+package com.company.ioc.util;
+...
+public interface IEncoder {
+    String encode(String message) throws UnsupportedEncodingException;
+}
+
+package com.company.ioc.util;
+...
+public class Encoder {
+    private IEncoder encoder;
+
+    public Encoder(IEncoder encoder) {
+        this.encoder = encoder;
+    }
+
+    public String encode(String message) throws UnsupportedEncodingException {
+        return encoder.encode(message);
+    }
+}
+
+package com.company.ioc.util;
+...
+public class Base64Encoder implements IEncoder {
+
+    @Override
+    public String encode(String message) throws UnsupportedEncodingException {
+        return Base64.getEncoder().encodeToString(message.getBytes());
+    }
+}
+
+package com.company.ioc.util;
+...
+public class UrlEncoder implements IEncoder {
+    public String encode(String message) throws UnsupportedEncodingException {
+        return URLEncoder.encode(message, "UTF-8");
+    }
+}
+```
