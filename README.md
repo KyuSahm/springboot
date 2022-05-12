@@ -1522,15 +1522,31 @@ public class Encoder {
         return encoder.encode(message);
     }
 }
+
 package com.example.springioc.util;
 ....
 public interface IEncoder {
     String encode(String message) throws UnsupportedEncodingException;
 }
 
+package com.example.springioc.util;
+....
+@Component
+public class Base64Encoder implements IEncoder {
 
-```    
+    @Override
+    public String encode(String message) throws UnsupportedEncodingException {
+        return Base64.getEncoder().encodeToString(message.getBytes());
+    }
+}
 
-
-
-
+package com.example.springioc.util;
+....
+@Component
+public class UrlEncoder implements IEncoder {
+    public String encode(String message) throws UnsupportedEncodingException {
+        return URLEncoder.encode(message, "UTF-8");
+    }
+}
+```
+## AOP
