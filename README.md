@@ -1180,12 +1180,6 @@ public class Main {
 
 package com.company.ioc.util;
 ...
-public interface IEncoder {
-    String encode(String message) throws UnsupportedEncodingException;
-}
-
-package com.company.ioc.util;
-...
 public class Encoder {
     private IEncoder encoder;
 
@@ -1196,6 +1190,12 @@ public class Encoder {
     public String encode(String message) throws UnsupportedEncodingException {
         return encoder.encode(message);
     }
+}
+
+package com.company.ioc.util;
+...
+public interface IEncoder {
+    String encode(String message) throws UnsupportedEncodingException;
 }
 
 package com.company.ioc.util;
@@ -1216,3 +1216,321 @@ public class UrlEncoder implements IEncoder {
     }
 }
 ```
+- IoC 실습 (1): Application Context를 통해 직접 Bean Object 가져오기
+  - ``@Component``를 클래스 이름 위에 Annotation처리: Bean Object로 Spring에 의해서 관리됨
+  - Dependency Injection: 3가지 방법으로 가능
+    - 변수
+    - 생성자
+    - setXXX() 메소드 
+  - Spring Framework에서 Bean으로 등록된 Object를 꺼내는 방법
+    - ``ApplicationContextAware``를 구현한 클래스를 정의
+    - 해당 클래스를 ``@Componet``를 통해 Bean Object로 등록
+    - Implement된 setApplicationContext() 메소드를 통해 Spring Framework으로부터 ApplicationContext를 입력 받음
+    - 해당 클래스의 정적메소드를 통해 ApplicationContext를 사용
+```java
+package com.example.springioc;
+......
+@SpringBootApplication
+public class SpringIocApplication {
+
+	public static void main(String[] args)
+	{
+		SpringApplication.run(SpringIocApplication.class, args);
+
+		// Base64 encoding
+		try {
+			ApplicationContext context = ApplicationContextProvider.getContext();
+
+			Base64Encoder base64Encoder = context.getBean(Base64Encoder.class);
+			UrlEncoder urlEncoder = context.getBean(UrlEncoder.class);
+
+			String url = "www.naver.com/books/it?page=10&size=20&name=spring-boot";
+			Encoder encoder = new Encoder(base64Encoder);
+			String urlResult = encoder.encode(url);
+
+			System.out.println("Base64 encodedUrl: " + urlResult);
+
+			encoder.setEncoder(urlEncoder);
+			urlResult = encoder.encode(url);
+			System.out.println("UrlEncoder encodedUrl: " + urlResult);
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		}
+	}
+}
+
+package com.example.springioc.context;
+....
+@Component
+public class ApplicationContextProvider implements ApplicationContextAware {
+    private static ApplicationContext context;
+
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+        context = applicationContext;
+    }
+
+    public static ApplicationContext getContext() {
+        return context;
+    }
+}
+
+package com.example.springioc.util;
+....
+public class Encoder {
+    private IEncoder encoder;
+
+    public Encoder(IEncoder encoder) {
+        this.encoder = encoder;
+    }
+
+    public void setEncoder(IEncoder encoder) {
+        this.encoder = encoder;
+    }
+
+    public String encode(String message) throws UnsupportedEncodingException {
+        return encoder.encode(message);
+    }
+}
+
+package com.example.springioc.util;
+....
+public interface IEncoder {
+    String encode(String message) throws UnsupportedEncodingException;
+}
+
+package com.example.springioc.util;
+....
+@Component
+public class Base64Encoder implements IEncoder {
+
+    @Override
+    public String encode(String message) throws UnsupportedEncodingException {
+        return Base64.getEncoder().encodeToString(message.getBytes());
+    }
+}
+
+package com.example.springioc.util;
+....
+@Component
+public class UrlEncoder implements IEncoder {
+    public String encode(String message) throws UnsupportedEncodingException {
+        return URLEncoder.encode(message, "UTF-8");
+    }
+}
+```
+- IoC 실습 (2): Interface를 구현한 여러 Bean Object들 중 하나 선택하기
+  - ``Encoder`` 클래스도 ``@Component``를 통해 Bean Object로 등록
+  - ``IEncoder``를 구현한 클래스가 ``Base64Encoder``와 ``UrlEncoder``로 두 개인 경우
+  - 실행 시, 에러가 발생함. Dependency Injection이 실패
+```java
+package com.example.springioc.util;
+....
+@Component
+public class Encoder {
+    private IEncoder encoder;
+
+    public Encoder(IEncoder encoder) {
+        this.encoder = encoder;
+    }
+
+    public void setEncoder(IEncoder encoder) {
+        this.encoder = encoder;
+    }
+
+    public String encode(String message) throws UnsupportedEncodingException {
+        return encoder.encode(message);
+    }
+}
+```
+  - 실행 결과
+```bash
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Parameter 0 of constructor in com.example.springioc.util.Encoder required a single bean, but 2 were found:
+	- base64Encoder: defined in file [D:\Workspace\springboot\practices\spring-ioc\build\classes\java\main\com\example\springioc\util\Base64Encoder.class]
+	- urlEncoder: defined in file [D:\Workspace\springboot\practices\spring-ioc\build\classes\java\main\com\example\springioc\util\UrlEncoder.class]
+
+
+Action:
+
+Consider marking one of the beans as @Primary, updating the consumer to accept multiple beans, or using @Qualifier to identify the bean that should be consumed
+```
+  - 해결 방법: ``Encoder`` 클래스의 생성자 주입에 ``@Qualifier``을 사용해서 Bean Object Id를 명시
+    - Bean Class에 별도로 ``@Component`` value를 통해 이름을 명시하지 않으면, 클래스 이름 첫글자가 소문자로 된 이름을 사용
+```java
+package com.example.springioc;
+....
+@SpringBootApplication
+public class SpringIocApplication {
+
+	public static void main(String[] args)
+	{
+		SpringApplication.run(SpringIocApplication.class, args);
+
+		// Base64 encoding
+		try {
+			ApplicationContext context = ApplicationContextProvider.getContext();
+
+			String url = "www.naver.com/books/it?page=10&size=20&name=spring-boot";
+			Encoder encoder = context.getBean(Encoder.class);
+			String urlResult = encoder.encode(url);
+			System.out.println("encodedUrl: " + urlResult);
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		}
+	}
+}
+
+package com.example.springioc.context;
+....
+@Component
+public class ApplicationContextProvider implements ApplicationContextAware {
+    private static ApplicationContext context;
+
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+        context = applicationContext;
+    }
+
+    public static ApplicationContext getContext() {
+        return context;
+    }
+}
+package com.example.springioc.util;
+....
+@Component
+public class Encoder {
+    private IEncoder encoder;
+
+    //public Encoder(@Qualifier("urlEncoder") IEncoder encoder) {
+    public Encoder(@Qualifier("base64encoder") IEncoder encoder) {
+        this.encoder = encoder;
+    }
+
+    public void setEncoder(IEncoder encoder) {
+        this.encoder = encoder;
+    }
+
+    public String encode(String message) throws UnsupportedEncodingException {
+        return encoder.encode(message);
+    }
+}
+package com.example.springioc.util;
+....
+public interface IEncoder {
+    String encode(String message) throws UnsupportedEncodingException;
+}
+
+package com.example.springioc.util;
+....
+@Component("base64encoder")
+public class Base64Encoder implements IEncoder {
+
+    @Override
+    public String encode(String message) throws UnsupportedEncodingException {
+        return Base64.getEncoder().encodeToString(message.getBytes());
+    }
+}
+
+package com.example.springioc.util;
+....
+@Component
+public class UrlEncoder implements IEncoder {
+    public String encode(String message) throws UnsupportedEncodingException {
+        return URLEncoder.encode(message, "UTF-8");
+    }
+}
+```
+- IoC 실습 (3): 여러 개의 Encoder를 함께 사용하고 싶을 때, 직접 구성하기
+  - ``Encoder`` 클래스에 존재하는 ``@Component`` annotation을 제거
+  - ``@Configuration``을 사용하는 클래스를 정의
+    - 각각의 Encoder에 ``@Bean``에 별도의 이름을 부여하고, 메소드를 정의
+```bash
+package com.example.springioc;
+....
+@SpringBootApplication
+public class SpringIocApplication {
+
+	public static void main(String[] args)
+	{
+		SpringApplication.run(SpringIocApplication.class, args);
+
+		// Base64 encoding
+		try {
+			ApplicationContext context = ApplicationContextProvider.getContext();
+
+			String url = "www.naver.com/books/it?page=10&size=20&name=spring-boot";
+			Encoder encoder = context.getBean("url-encoder", Encoder.class);
+			String urlResult = encoder.encode(url);
+			System.out.println("encodedUrl: " + urlResult);
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		}
+	}
+}
+
+package com.example.springioc.config;
+....
+@Configuration
+public class AppConfig {
+    @Bean("base64-encoder")
+    public Encoder encoder(Base64Encoder base64Encoder) {
+        return new Encoder(base64Encoder);
+    }
+
+    @Bean("url-encoder")
+    public Encoder encoder(UrlEncoder urlEncoder) {
+        return new Encoder(urlEncoder);
+    }
+}
+
+package com.example.springioc.context;
+....
+@Component
+public class ApplicationContextProvider implements ApplicationContextAware {
+    private static ApplicationContext context;
+
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+        context = applicationContext;
+    }
+
+    public static ApplicationContext getContext() {
+        return context;
+    }
+}
+
+package com.example.springioc.util;
+....
+public class Encoder {
+    private IEncoder encoder;
+
+    public Encoder(IEncoder encoder) {
+        this.encoder = encoder;
+    }
+
+    public void setEncoder(IEncoder encoder) {
+        this.encoder = encoder;
+    }
+
+    public String encode(String message) throws UnsupportedEncodingException {
+        return encoder.encode(message);
+    }
+}
+package com.example.springioc.util;
+....
+public interface IEncoder {
+    String encode(String message) throws UnsupportedEncodingException;
+}
+
+
+```    
+
+
+
+
