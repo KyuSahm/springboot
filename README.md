@@ -1569,6 +1569,7 @@ public class UrlEncoder implements IEncoder {
 | @AfterThrowing | 메소드 호출 실패 예외 발생 (Throws) |
 | @Around | Before/After 모두 제어 |
 ### AOP 실습 사례 (1)
+- 메소드의 입력 인자와 Return Object 정보 남기기
 - ``build.gradle``에 AOP와 관련된 dependency를 추가한 후
   - ``implementation 'org.springframework.boot:spring-boot-starter-aop'`` 추가
   - intelliJ 화면 우측의 gradle 버튼을 클릭한 후, 새로고침 버튼 클릭
@@ -1581,10 +1582,16 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
 ```
-- ``@Pointcut`` 사용법
+- ``@Pointcut`` 사용법 (1)
   - https://www.baeldung.com/spring-aop-pointcut-tutorial
-  - ``com.example.aop.controller`` 패키지 아래의 모든 메소들에 대한 Pointcut 추가
+  - ``com.example.aop.controller`` 패키지 아래의 모든 메소드의 실행에 대한 Pointcut 추가
     - ``@Pointcut("execution(* com.example.aop.controller..*.*(..))")``
+      - ``execution``, which matches method execution join points
+      - the first wildcard(``*``) matches any return value
+      - the first ``..`` matches any packages
+      - the second wildcard(``*``) matches any class name
+      - the third wildcard(``*``) matches any method name
+      - the ``(..)`` pattern matches any number of parameters (zero or more).
 - 소스 코드    
 ```java
 package com.example.aop;
@@ -1703,4 +1710,334 @@ post method: User{id='gusami32', password='ehalthf93', email='gusami32@gmail.com
 ####After returning method ####
 return object: User{id='gusami32', password='ehalthf93', email='gusami32@gmail.com'}
 ```
+### AOP 실습 사례 (2)
+- 메소드의 실행 시간 남기기
+- Annotation을 정의해서 생성하고, 해당 Annotation을 사용하는 메소드에 대해서 실행 시간 남기기
+  - ``@Timer`` annotation을 ``ElementType.TYPE, ElementType.METHOD``에 사용가능하도록 정의
+- ``@Pointcut`` 사용법 (2)
+  - https://www.baeldung.com/spring-aop-pointcut-tutorial
+  - 특정 Annotation을 붙인 Method와 Class에 대해서만 Pointcut 추가
+    - ``@Pointcut("@annotation(com.example.aop.annotation.Timer)")``
+- 소스
+  - ``com.example.aop.controller``의 하위패키지에 존재하는 클래스의 ``@Timer`` annotation이 있는 메소드에 대해서 실행시간을 로깅
+  - 실제 메소드가 아닌 AOP의 ``@Around`` annotation을 사용해서 로깅    
+  - ``@Around`` annotation을 사용하는 메소드는 ``ProceedingJoinPoint`` 타입의 인자를 사용
+```java
+package com.example.aop;
+....
+@SpringBootApplication
+public class AopApplication {
+	public static void main(String[] args) {
+		SpringApplication.run(AopApplication.class, args);
+	}
+}
 
+package com.example.aop.controller;
+....
+@RestController
+@RequestMapping("/api")
+public class RestApiController {
+    @GetMapping("/get/{id}")
+    public String get(@PathVariable Long id, @RequestParam String name) {
+        System.out.printf("get method id: %s, name: %s\n", id, name);
+        return id + "/" + name;
+    }
+
+    @PostMapping("/post")
+    public User post(@RequestBody User user) {
+        System.out.println("post method: " + user);
+        return user;
+    }
+
+    @Timer
+    @DeleteMapping("/delete")
+    public void delete() {
+        try {
+            // db logic. It takes 2 seconds.
+            Thread.sleep(1000 * 2);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+package com.example.aop.aop;
+....
+@Aspect
+@Component
+public class TimerAop {
+    @Pointcut("execution(* com.example.aop.controller..*.*(..))")
+    private void pointCutMethod() {
+    }
+
+    @Pointcut("@annotation(com.example.aop.annotation.Timer)")
+    private void enableTimer() {
+    }
+
+    // 두 개의 Point Cut을 동시에 적용
+    // 결국, com.example.aop.controller아래의 Package에서 @Timer annotation을 사용한 메소드에 대해서 실행시간을 측정
+    @Around("pointCutMethod() && enableTimer()")
+    public void around(ProceedingJoinPoint joinPoint) {
+        try {
+            StopWatch stopWatch = new StopWatch();
+            stopWatch.start();
+            // 실제 메소드를 호출
+            Object result = joinPoint.proceed();
+            stopWatch.stop();
+            MethodSignature methodSignature = (MethodSignature)joinPoint.getSignature();
+            Method method = methodSignature.getMethod();
+            System.out.printf("Total Execution Time for Method name: %s is [%f]seconds\n",
+                    method.getName(), stopWatch.getTotalTimeSeconds());
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+package com.example.aop.aop;
+....
+@Aspect
+@Component
+public class ParameterAop {
+    @Pointcut("execution(* com.example.aop.controller..*.*(..))")
+    private void pointCutMethod() {
+
+    }
+
+    @Before("pointCutMethod()")
+    public void before(JoinPoint joinPoint) {
+        System.out.println("#### Before calling method ####");
+        MethodSignature methodSignature = (MethodSignature)joinPoint.getSignature();
+        Method method = methodSignature.getMethod();
+        System.out.println("Method name: " + method.getName());
+        Object[] args = joinPoint.getArgs();
+        for (Object obj: args) {
+            System.out.printf("argument type: %s, value: %s\n", obj.getClass().getSimpleName(), obj);
+        }
+    }
+
+    @AfterReturning(value = "pointCutMethod()", returning = "returnObj")
+    public void afterReturn(JoinPoint joinPoint, Object returnObj) {
+        System.out.println("####After returning method ####");
+        System.out.println("return object: " + returnObj);
+    }
+}
+
+package com.example.aop.annotation;
+....
+@Target({ElementType.TYPE, ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Timer {
+}
+
+package com.example.aop.dto;
+
+public class User {
+    private String id;
+    private String password;
+    private String email;
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "id='" + id + '\'' +
+                ", password='" + password + '\'' +
+                ", email='" + email + '\'' +
+                '}';
+    }
+}
+```
+### AOP 실습 사례 (3)
+- 메소드의 입력값을 변환해 보기: 잘 사용하지는 않음
+- 사용 예
+  - 암호화된 값이 들어오면 복호화한 후, 메소드로 전달
+  - 메소드의 리턴값을 다시 암호화해서 외부로 전달
+- Annotation을 정의해서 생성하고, 해당 Annotation을 사용하는 메소드에 대해서 실행 시간 남기기
+  - ``@Decoder`` annotation을 ``ElementType.TYPE, ElementType.METHOD``에 사용가능하도록 정의
+- ``@Pointcut`` 사용법
+  - https://www.baeldung.com/spring-aop-pointcut-tutorial
+  - 특정 Annotation을 붙인 Method와 Class에 대해서만 Pointcut 추가
+    - ``@Pointcut("@annotation(com.example.aop.annotation.Decoder)")``
+- 소스
+```java
+package com.example.aop;
+....
+@SpringBootApplication
+public class AopApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(AopApplication.class, args);
+		// email 주소의 인코딩 값을 확인		
+		//System.out.println(Base64.getEncoder().encodeToString(("gusami32@gmail.com".getBytes(StandardCharsets.UTF_8))));
+	}
+
+}
+
+package com.example.aop.aop;
+....
+@Aspect
+@Component
+public class DecoderAop {
+    @Pointcut("execution(* com.example.aop.controller..*.*(..))")
+    private void pointCutMethod() {
+    }
+
+    @Pointcut("@annotation(com.example.aop.annotation.Decoder)")
+    private void enableDecoder() {
+    }
+
+    // 두 개의 Point Cut을 동시에 적용
+    // 결국, com.example.aop.controller아래의 Package에서 @Decoder annotation을 사용한 메소드에 대해서 적용
+    @Before("pointCutMethod() && enableDecoder()")
+    public void before(JoinPoint joinPoint) {
+        Object[] args = joinPoint.getArgs();
+
+        for (Object arg: args) {
+            if (arg instanceof User) {
+                // 객체 형변환
+                User user = User.class.cast(arg);
+                try {
+                    System.out.println("Before Decoding: " + user.getEmail());
+                    String email = new String(Base64.getDecoder().decode(user.getEmail()), "UTF-8");
+                    user.setEmail(email);
+                    System.out.println("After Decoding: " + user.getEmail());
+                } catch (UnsupportedEncodingException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    // 두 개의 Point Cut을 동시에 적용
+    // 결국, com.example.aop.controller아래의 Package에서 @Decoder annotation을 사용한 메소드에 대해서 적용
+    @AfterReturning(value = "pointCutMethod() && enableDecoder()", returning = "returnObj")
+    public void afterReturning(JoinPoint joinPoint, Object returnObj) {
+        if (returnObj instanceof User) {
+            User user = User.class.cast(returnObj);
+            System.out.println("Before Encoding: " + user.getEmail());
+            String base64Email = Base64.getEncoder().encodeToString(user.getEmail().getBytes());
+            user.setEmail(base64Email);
+            System.out.println("After Encoding: " + user.getEmail());
+        }
+    }
+}
+
+package com.example.aop.annotation;
+....
+@Target({ElementType.TYPE, ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Decoder {
+}
+
+package com.example.aop.controller;
+....
+@RestController
+@RequestMapping("/api")
+public class RestApiController {
+    @GetMapping("/get/{id}")
+    public String get(@PathVariable Long id, @RequestParam String name) {
+        System.out.printf("get method id: %s, name: %s\n", id, name);
+        return id + "/" + name;
+    }
+
+    @PostMapping("/post")
+    public User post(@RequestBody User user) {
+        System.out.println("post method: " + user);
+        return user;
+    }
+
+    @Timer
+    @DeleteMapping("/delete")
+    public void delete() {
+        try {
+            // db logic. It takes 2 seconds.
+            Thread.sleep(1000 * 2);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Decoder
+    @PutMapping("/put")
+    public User put(@RequestBody User user) {
+        System.out.println("put method: " + user);
+        return user;
+    }
+}
+
+package com.example.aop.dto;
+
+public class User {
+    private String id;
+    private String password;
+    private String email;
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "id='" + id + '\'' +
+                ", password='" + password + '\'' +
+                ", email='" + email + '\'' +
+                '}';
+    }
+}
+```
+- REST Client
+![AOP_Example_3](./images/AOP_Example_3.png)
+- 서버 출력
+```bash
+...
+Before Decoding: Z3VzYW1pMzJAZ21haWwuY29t
+After Decoding: gusami32@gmail.com
+put method: User{id='gusami32', password='ehalthf93', email='gusami32@gmail.com'}
+Before Encoding: gusami32@gmail.com
+After Encoding: Z3VzYW1pMzJAZ21haWwuY29t
+```
