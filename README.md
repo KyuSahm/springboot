@@ -1549,4 +1549,158 @@ public class UrlEncoder implements IEncoder {
     }
 }
 ```
-## AOP
+## AOP (Aspect Oriented Programming)
+- 관점지향 프로그램
+- Spring의 MVC Web application은 Web Layer, Business Layer, Data Layer로 정의
+  - Web Layer: REST API를 제공하며, Client 중심의 로직 적용
+  - Business Layer: 내부 정책에 따른 logic를 개발하며, 주로 해당 부분을 개발
+  - Data Layer: 데이터베이스 및 외부와의 연동을 처리
+- 횡단 관심: 메소드 인자 로깅, 실행시간 로깅, 메소드 인코딩 등에 사용 가능 
+![AOP_Example](./images/AOP_Example.png)
+- 주요 Annotation
+
+| Annotation | 의미 |
+| --------- | ----------- |
+| @Aspect | 자바에서 널리 사용하는 AOP Framework에 포함되며 AOP를 정의하는 Class에 할당 |
+| @Pointcut | 기능을 어디에 적용시킬지 결정. 메소드, Annotation 등 AOP를 적용시킬 지점을 설정 |
+| @Before | 메소드를 실행하기 이전 |
+| @After | 메소드가 성공적으로 실행 후, 예외가 발생되더라도 실행 |
+| @AfterReturning | 메소드 호출 성공 실행 시(Not Throws) |
+| @AfterThrowing | 메소드 호출 실패 예외 발생 (Throws) |
+| @Around | Before/After 모두 제어 |
+### AOP 실습 사례 (1)
+- ``build.gradle``에 AOP와 관련된 dependency를 추가한 후
+  - ``implementation 'org.springframework.boot:spring-boot-starter-aop'`` 추가
+  - intelliJ 화면 우측의 gradle 버튼을 클릭한 후, 새로고침 버튼 클릭
+  - 새로운 Dependency를 반영해서 빌드가 됨
+```java
+...
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-aop'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+```
+- ``@Pointcut`` 사용법
+  - https://www.baeldung.com/spring-aop-pointcut-tutorial
+  - ``com.example.aop.controller`` 패키지 아래의 모든 메소들에 대한 Pointcut 추가
+    - ``@Pointcut("execution(* com.example.aop.controller..*.*(..))")``
+- 소스 코드    
+```java
+package com.example.aop;
+....
+@SpringBootApplication
+public class AopApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(AopApplication.class, args);
+	}
+
+}
+
+package com.example.aop.aop;
+....
+@Aspect
+@Component
+public class ParameterAop {
+    @Pointcut("execution(* com.example.aop.controller..*.*(..))")
+    private void pointCutMethod() {
+
+    }
+
+    @Before("pointCutMethod()")
+    public void before(JoinPoint joinPoint) {
+        System.out.println("#### Before calling method ####");
+        MethodSignature methodSignature = (MethodSignature)joinPoint.getSignature();
+        Method method = methodSignature.getMethod();
+        System.out.println("Method name: " + method.getName());
+        Object[] args = joinPoint.getArgs();
+        for (Object obj: args) {
+            System.out.printf("argument type: %s, value: %s\n", obj.getClass().getSimpleName(), obj);
+        }
+    }
+
+    @AfterReturning(value = "pointCutMethod()", returning = "returnObj")
+    public void afterReturn(JoinPoint joinPoint, Object returnObj) {
+        System.out.println("####After returning method ####");
+        System.out.println("return object: " + returnObj);
+    }
+}
+
+package com.example.aop.controller;
+....
+@RestController
+@RequestMapping("/api")
+public class RestApiController {
+    @GetMapping("/get/{id}")
+    public String get(@PathVariable Long id, @RequestParam String name) {
+        System.out.printf("get method id: %s, name: %s\n", id, name);
+        return id + "/" + name;
+    }
+
+    @PostMapping("/post")
+    public User post(@RequestBody User user) {
+        System.out.println("post method: " + user);
+        return user;
+    }
+}
+
+package com.example.aop.dto;
+
+public class User {
+    private String id;
+    private String password;
+    private String email;
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "id='" + id + '\'' +
+                ", password='" + password + '\'' +
+                ", email='" + email + '\'' +
+                '}';
+    }
+}
+```
+- 수행 결과
+```bash
+.....
+#### Before calling method ####
+Method name: get
+argument type: Long, value: 100
+argument type: String, value: steve
+get method id: 100, name: steve
+####After returning method ####
+return object: 100/steve
+#### Before calling method ####
+Method name: post
+argument type: User, value: User{id='gusami32', password='ehalthf93', email='gusami32@gmail.com'}
+post method: User{id='gusami32', password='ehalthf93', email='gusami32@gmail.com'}
+####After returning method ####
+return object: User{id='gusami32', password='ehalthf93', email='gusami32@gmail.com'}
+```
+
