@@ -6,9 +6,14 @@
 - Code Generate for Constructor, Getter, Setter, toString etc: ``Alt + Ins``
 - Settings 창 띄우기: ``Ctrl + Alt + s``
 # IntelliJ 설정 팁
-- 실행 시, ``Run``창의 한글이 깨지는 문제 해결 법
-  - [ Ctrl+Shift+A ] 누르고 vm을 검색하고 [Edit Custom VM Options...] 클릭
-  - ``-Dfile.encoding=UTF-8`` 추가
+- 한글 관련 설정
+  - IDE Encoding 관련
+    - File > Settings (Ctrl + Alt + S) > Editor > File Encodings
+    - Global Encoding, Project Encoding, Default encoding for properties files를 ``UTF-8`` 선택
+  - 실행 시, ``Run``창의 한글이 깨지는 문제 해결 법
+    - Help > Find Action (Ctrl+Shift+A)
+    - ``custom vm``을 검색하고 [Edit Custom VM Options...] 클릭
+    - ``-Dfile.encoding=UTF-8`` 추가
   - IntelliJ Restart 
 
 출처: https://treasurebear.tistory.com/55 [나를 남기다]  
@@ -713,10 +718,10 @@ public class ApiController {
   - ``Content-Type: text/plain;charset=UTF-8``로 응답: 기본 encoding은 UTF-8임
 ### JSON로 Response하기
 - Client로 내려가는 JSON의 문자열의 기본 인코딩은 "UTF-8"
-- Client의 json 문자열 Request가 오면, 서버에서는 Object Mapper에 의해 DTO object로 바뀜
-  - JSON 문자열 Request -> Object Mapper -> DTO Object
-- 서버에서 Response가 DTO object로 전달하면, Object Mapper를 거쳐 json 문자열로 변환되어 Client로 전달
-  - DTO Object -> Object Mapper -> JSON 문자열 Response
+- Client의 json 문자열 Request가 오면, 서버에서는 ObjectMapper에 의해 DTO object로 바뀜
+  - JSON 문자열 Request -> ObjectMapper -> DTO Object
+- 서버에서 Response가 DTO object로 전달하면, ObjectMapper를 거쳐 json 문자열로 변환되어 Client로 전달
+  - DTO Object -> ObjectMapper -> JSON 문자열 Response
 - 서버  
 ```java
 package com.example.response.controller;
@@ -1045,16 +1050,16 @@ public class User {
 ```
 - 클라이언트: null값 필드는 내려오지 않음
 ![Response_JSON2](./images/Response_JSON2.png)
-## Object Mapper
+## ObjectMapper
 - JSON 문자열을 Java Object로 변환 또는 Java Object를 JSON 문자열로 변환
 - controller에서 JSON 문자열의 Request를 Java Object로 변환 (자동)
 - controller에서 Java Object를 JSON 문자열의 Response로 변환 (자동)
 - 사용 방법
-  - Object Mapper가 Java Object를 JSON 문자열로 변경 시, 필드에 대한 getXXX() 메소드를 사용
+  - ObjectMapper가 Java Object를 JSON 문자열로 변경 시, 필드에 대한 getXXX() 메소드를 사용
     - Java Class에 필드에 대한 getXXX()를 정의해야 함
     - 필드가 아닌 별도의 getXXX() 메소드를 정의하면 에러가 발생
       - 메소드 이름에 get 접두어를 빼고 정의해야함
-  - Object Mapper가 JSON 문자열을 Java Object로 변경 시, Default 생성자를 사용
+  - ObjectMapper가 JSON 문자열을 Java Object로 변경 시, Default 생성자를 사용
     - Java Class에 Default 생성자를 정의해야 함    
 ```java
 package com.example.objectmapper;
@@ -2041,3 +2046,22 @@ put method: User{id='gusami32', password='ehalthf93', email='gusami32@gmail.com'
 Before Encoding: gusami32@gmail.com
 After Encoding: Z3VzYW1pMzJAZ21haWwuY29t
 ```
+## ObjectMapper
+- Json Node에 접근하는 방법 연습
+- Gson도 비슷한 역할을 함
+- SpringBoot Project가 아니라 Java Project로 실습
+  - IntelliJ > New > Project > Gradle > Java > Next > 상세 정보 > finish
+![object_mapper_project](./images/object_mapper_project.png)
+- ``build.gradle``에 dependency를 추가하는 법
+  - Google에서 ``maven repository`` 검색 > https://mvnrepository.com/ 접속
+  - Search에서 필요한 library를 검색
+  - object mapper 검색 > usage가 제일 높은 ``Jackson Databind`` 선택
+  - 최신 버전에서 가까운 것 중에 사용률이 높은 것을 선택
+  - ``Gradle`` Tab를 선택
+    - name 속성이 실제 jar 파일명
+    - group 속성은 Package명
+  - 복사 후, ``build.gradle``의 dependencies에 추가 후, ``Load Gradle Changes`` 클릭
+- 실습
+  - Root Directory 아래에 ``sample.json`` 파일을 생성
+16:30  
+
