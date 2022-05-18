@@ -1,10 +1,13 @@
 package dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.List;
 
 public class User {
     private String name;
     private int age;
+    @JsonProperty("car_list")
     private List<Car> carList;
 
     public String getName() {

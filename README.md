@@ -2047,8 +2047,11 @@ Before Encoding: gusami32@gmail.com
 After Encoding: Z3VzYW1pMzJAZ21haWwuY29t
 ```
 ## ObjectMapper
-- Json Node에 접근하는 방법 연습
-- Gson도 비슷한 역할을 함
+- Client와 JSON형태로 데이터를 주고 받은 때는 반드시 ``UTF-8`` 인코딩을 사용해라!
+  - Windows의 경우, MSWIN949가 기본으로 사용되므로, 설정을 모두 변경
+  - Mac OS의 경우, UTF-8이 기본 인코딩이므로 문제가 없음
+- Json Node에 접근하는 방법을 알아보자
+- Gson도 Jackson ObjectMapper과 유사한 역할 수행
 - SpringBoot Project가 아니라 Java Project로 실습
   - IntelliJ > New > Project > Gradle > Java > Next > 상세 정보 > finish
 ![object_mapper_project](./images/object_mapper_project.png)
@@ -2061,7 +2064,234 @@ After Encoding: Z3VzYW1pMzJAZ21haWwuY29t
     - name 속성이 실제 jar 파일명
     - group 속성은 Package명
   - 복사 후, ``build.gradle``의 dependencies에 추가 후, ``Load Gradle Changes`` 클릭
+- Json Formatter & Validator
+  - 주어진 문자열이 정상적인 JSON 형태인지 검증
+  - https://jsonformatter.curiousconcept.com/
+![json_validator](./images/json_validator.png)    
 - 실습
-  - Root Directory 아래에 ``sample.json`` 파일을 생성
-16:30  
+  - JSON 문자열을 읽어서 특정 Object로 바로 Mapping하지 않고, Json Node에 접근 가능
+  - 배열과 같은 Type은 TypeReference를 이용하여 원하는 Java 타입(Array, List, Set)으로 변경 가능
+  - 특정 Node 값을 읽을 수도 있고, 변경할 수도 있음
+    - JsonNode의 메소드들은 읽기만 가능하므로, 하위 클래스인 ObjectNode로 변경 가능
+```java
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import dto.Car;
+import dto.User;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
+public class Main {
+    public static void main(String[] args) {
+        ObjectMapper objectMapper = new ObjectMapper();
+
+        User user = new User();
+        user.setName("홍길동");
+        user.setAge(10);
+
+        List<Car> carList = new ArrayList<>();
+
+        Car car1 = new Car();
+        car1.setName("K5");
+        car1.setCarNumber("11가 1111");
+        car1.setType("sedan");
+        carList.add(car1);
+
+        Car car2 = new Car();
+        car2.setName("Q5");
+        car2.setCarNumber("22가 2222");
+        car2.setType("suv");
+        carList.add(car2);
+
+        user.setCarList(carList);
+
+        System.out.println("=========================================================================================");
+        System.out.println(user);
+
+        String json = null;
+        try {
+            //json = objectMapper.writeValueAsString(user);
+            json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(user);
+            System.out.println("=====================================================================================");
+            System.out.printf("json string: %s\n", json);
+
+            // JSON 문자열에서 JSON Node에 Access하기
+            JsonNode rootNode = objectMapper.readTree(json);
+            String name = rootNode.get("name").asText();
+            int age = rootNode.get("age").asInt();
+            System.out.println("=====================================================================================");
+            System.out.printf("name: %s, age: %d\n", name, age);
+
+            // JSON의 배열은 ArrayNode를 통해서 접근
+            JsonNode carListNode = rootNode.get("car_list");
+            ArrayNode arrayNode = (ArrayNode)carListNode;
+
+            // TypeReference를 통해 원하는 Type으로 변경
+            Car[] carArray = objectMapper.convertValue(arrayNode, new TypeReference<Car[]>(){});
+            System.out.println("=====================================================================================");
+            System.out.print("car array: [");
+            for (Car car: carArray) {
+                System.out.printf("%s ", car);
+            }
+            System.out.println("]");
+
+            // TypeReference를 통해 원하는 Type으로 변경
+            List<Car> carList1 = objectMapper.convertValue(arrayNode, new TypeReference<List<Car>>(){});
+            System.out.println("=====================================================================================");
+            System.out.printf("car list: %s\n", carList1);
+
+            // TypeReference를 통해 원하는 Type으로 변경
+            Set<Car> carSet = objectMapper.convertValue(arrayNode, new TypeReference<Set<Car>>(){});
+            System.out.println("=====================================================================================");
+            System.out.printf("car set: %s\n", carSet);
+
+            // JsonNode는 값을 변경하는 메소드를 제공하지 않지만, ObjectNode는 메소드를 제공
+            // ObjectNode가 JsonNode의 하위 클래스
+            // AOP 또는 filter, intercepter에서 특정 데이터 값을 수정 가능
+            ObjectNode objectNode = (ObjectNode) rootNode;
+            objectNode.put("name", "steve");
+            objectNode.put("age", 20);
+            System.out.println("=====================================================================================");
+            System.out.println(objectNode.toPrettyString());
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+package dto;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
+
+public class User {
+    private String name;
+    private int age;
+    @JsonProperty("car_list")
+    private List<Car> carList;
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public void setAge(int age) {
+        this.age = age;
+    }
+
+    public List<Car> getCarList() {
+        return carList;
+    }
+
+    public void setCarList(List<Car> carList) {
+        this.carList = carList;
+    }
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "name='" + name + '\'' +
+                ", age=" + age +
+                ", carList=" + carList +
+                '}';
+    }
+}
+
+package dto;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public class Car {
+    private String name;
+    @JsonProperty("car_number")
+    private String carNumber;
+    @JsonProperty("TYPE")
+    private String type;
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getCarNumber() {
+        return carNumber;
+    }
+
+    public void setCarNumber(String carNumber) {
+        this.carNumber = carNumber;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    @Override
+    public String toString() {
+        return "Car{" +
+                "name='" + name + '\'' +
+                ", carNumber='" + carNumber + '\'' +
+                ", type='" + type + '\'' +
+                '}';
+    }
+}
+```
+```bash
+# 출력 결과
+=========================================================================================
+User{name='홍길동', age=10, carList=[Car{name='K5', carNumber='11가 1111', type='sedan'}, Car{name='Q5', carNumber='22가 2222', type='suv'}]}
+=====================================================================================
+json string: {
+  "name" : "홍길동",
+  "age" : 10,
+  "car_list" : [ {
+    "name" : "K5",
+    "car_number" : "11가 1111",
+    "TYPE" : "sedan"
+  }, {
+    "name" : "Q5",
+    "car_number" : "22가 2222",
+    "TYPE" : "suv"
+  } ]
+}
+=====================================================================================
+name: 홍길동, age: 10
+=====================================================================================
+car array: [Car{name='K5', carNumber='11가 1111', type='sedan'} Car{name='Q5', carNumber='22가 2222', type='suv'} ]
+=====================================================================================
+car list: [Car{name='K5', carNumber='11가 1111', type='sedan'}, Car{name='Q5', carNumber='22가 2222', type='suv'}]
+=====================================================================================
+car set: [Car{name='K5', carNumber='11가 1111', type='sedan'}, Car{name='Q5', carNumber='22가 2222', type='suv'}]
+=====================================================================================
+{
+  "name" : "steve",
+  "age" : 20,
+  "car_list" : [ {
+    "name" : "K5",
+    "car_number" : "11가 1111",
+    "TYPE" : "sedan"
+  }, {
+    "name" : "Q5",
+    "car_number" : "22가 2222",
+    "TYPE" : "suv"
+  } ]
+}
+```
 
