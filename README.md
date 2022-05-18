@@ -2294,4 +2294,32 @@ car set: [Car{name='K5', carNumber='11가 1111', type='sedan'}, Car{name='Q5', c
   } ]
 }
 ```
-
+## SpringBoot Annotations
+| Annotation | 의미 |
+| --------- | ----------- |
+| @SpringBootApplication | SpringBoot application으로 설정 |
+| @Controller | View를 제공하는 Controller로 설정 |
+| @RestController | REST API를 제공하는 Controller로 설정 |
+| @RequestMapping | URL 주소를 맵핑 (클래스와 메소드에 모두 사용가능)|
+| @GetMapping | Http GetMethod URL 주소 맵핑 |
+| @PostMapping | Http PostMethod URL 주소 맵핑 |
+| @PutMapping | Http PutMethod URL 주소 맵핑 |
+| @DeleteMapping | Http DeleteMethod URL 주소 맵핑 |
+| @RequestParam | URL Query Parameter 맵핑 |
+| @RequestBody | Http Body를 Parsing 맵핑 |
+| @Valid | POJO Java Class의 검증 |
+| @Configuration | 동일한 Interface의 2개 이상의 bean을 등록할 때 설정 |
+| @Component | 1개의 Class 단위로 등록할 때 사용 |
+| @Bean | 1개의 외부 library로부터 생성한 객체를 등록 시 메소드에 사용 |
+| @Autowired | Dependency Injection을 위한 곳에 사용 |
+| @Qualifier | @Autowired 사용 시, 동일한 Interface의 bean이 2개 이상일 때 명시적 사용 |
+| @Resource | @Autowired + @Qualifier의 개념으로 이해 |
+| @Aspect | AOP. 자바에서 널리 사용하는 AOP Framework에 포함되며 AOP를 정의하는 Class에 할당 |
+| @Pointcut | AOP. 기능을 어디에 적용시킬지 결정. 메소드, Annotation 등 AOP를 적용시킬 지점을 설정 |
+| @Before | AOP. 메소드를 실행하기 이전 |
+| @After | AOP. 메소드가 성공적으로 실행 후, 예외가 발생되더라도 실행 |
+| @AfterReturning | AOP. 메소드 호출 성공 실행 시(Not Throws) |
+| @AfterThrowing | AOP. 메소드 호출 실패 예외 발생 (Throws) |
+| @Around | AOP. Before/After 모두 제어. 예외 발생 포함 |
+# 스프링 기능의 활용
+## SpringBoot Validation
