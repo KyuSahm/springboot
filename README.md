@@ -2323,3 +2323,167 @@ car set: [Car{name='K5', carNumber='11가 1111', type='sedan'}, Car{name='Q5', c
 | @Around | AOP. Before/After 모두 제어. 예외 발생 포함 |
 # 스프링 기능의 활용
 ## SpringBoot Validation
+- Validation이란?
+  - Validation은 프로그래밍에 있어서 가장 필요한 부분입니다. 특히 Java에서는 null 값에 대해서 접근하려고 할 때 ``Null Pointer Exception``이 발생하기 때문에, 이러한 부분을 방지하기 위해서 미리 검증을 하는 과정을 Validation이라고 한다.
+  - 단순하게는 아래와 같은 코드들이다.
+```java
+public void run(String account, String pw, int age) {
+  if (account == null || pw == null) {
+    return;
+  }
+
+  if (age <= 0) {
+    return;
+  }
+
+  // 정상 로직 수행
+}
+```
+- Valication 시 주의 사항
+  - 검증해야 할 값이 많은 경우, 코드의 길이가 길어진다
+  - 구현에 따라서 달라질 수 있지만, Service Logic와의 분리가 필요하다
+  - 흩어져 있는 경우, 어디에서 검증을 하는지 알기 어려우며, 재사용의 한계가 있다
+  - 구현에 따라 달라질 수 있지만, 검증 Logic이 변경되는 경우 테스트 코드 등 참조하는 클래스에서 Logic이 변경되어야 하는 부분이 발생할 수 있다
+- Important Validation Annotation
+
+| Annotation | 의미 | 특징 |
+| --------- | ----------- | ----------- |
+| @Size | 문자 길이 측정 | Int Type에는 불가 |
+| @NotNull | null 불가 | |
+| @NotEmpty | null, "" 불가 | |
+| @NotBlank | null, "", " " 불가 | |
+| @Past | 과거 날짜 | |
+| @PastOrPresent | 오늘이거나 과거 날짜 | |
+| @Future | 미래 날짜 | |
+| @FutureOrPresent | 오늘이거나 미래 날짜 | |
+| @Pattern | 정규식 적용 | |
+| @Email | 이메일 형식인지 검사 | |
+| @Max | 최대값 | |
+| @Min | 최소값 | |
+| @AssertTrue/False | 별도 Logic 적용 | |
+| @Valid | 해당 object validation 실행 | |
+- bean validation spec
+  - https://beanvalidation.org/2.0-jsr380/
+- gradle dependencies
+  - ``implementation("org.springframework.boot;spring-boot-starter-validation")``
+- 정규표현식 예
+  - 핸드폰번호 정규표현식: ``^\\d{2,3}-\\d{3,4}-\\d{4}$``
+- Controller Method의 인자값이 ``@RequestBody``인 경우, 사용 방법  
+  - 인자에 ``@Valid``를 붙여야 Object Validation
+    - 예: ``public ResponseEntity<User> user(@Valid @RequestBody User user) {}``
+  - DTO class이 필드에 사용하고자 하는 annotation을 붙여줌
+  - 클라이언트에 HTTPStatus 400이 전달되고, 원인은 서버의 로그를 통해 확인 가능  
+- Controller Method에 ``BindingResult`` 인자를 추가해서 실제 에러 정보를 추출하는 것도 가능
+  - 실습 코드 참조
+- Validation Annotation에 ``message`` 속성을 추가하여 사용자가 원하는 메시지를 입력 가능
+- 실습
+```bash
+# build.gradle
+implementation group: 'org.springframework.boot', name: 'spring-boot-starter-validation', version: '2.6.6'
+```
+```java
+package com.example.validation;
+....
+@SpringBootApplication
+public class ValidationApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(ValidationApplication.class, args);
+	}
+
+}
+
+package com.example.validation.controller;
+....
+@RestController
+@RequestMapping("/api")
+public class ApiController {
+    @PostMapping("/user")
+    public ResponseEntity<User> user(@Valid @RequestBody User user) {
+        System.out.println(user);
+
+// manual check
+//        if (user.getAge() > 50) {
+//            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(user);
+//        }
+
+        return ResponseEntity.ok(user);
+    }
+
+    @PostMapping("/user2")
+    public ResponseEntity<Object> user(@Valid @RequestBody User user, BindingResult bindingResult) {
+        System.out.println(user);
+        if (bindingResult.hasErrors()) {
+            StringBuilder sb = new StringBuilder();
+            bindingResult.getAllErrors().forEach(error -> {
+                FieldError fieldError = (FieldError) error;
+                String message = error.getDefaultMessage();
+                System.out.printf("Validation error - field: %s, message: %s\n", fieldError.getField(), message);
+                sb.append("Validation error - field: ").append(fieldError.getField());
+                sb.append(", message: ").append(message).append("\n");
+            });
+
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(sb.toString());
+        }
+
+        return ResponseEntity.ok(user);
+    }
+}
+
+package com.example.validation.dto;
+....
+public class User {
+    @NotBlank(message = "이름은 필수 입려사항입니다")
+    private String name;
+    @Max(value = 100, message = "나이는 100살이하이어야 합니다")
+    private int age;
+    @Email
+    private String email;
+    @Pattern(regexp ="^\\d{2,3}-\\d{3,4}-\\d{4}$", message = "핸드폰 번호의 양식과 맞지 않습니다.")
+    private String phoneNumber;
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public void setAge(int age) {
+        this.age = age;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "name='" + name + '\'' +
+                ", age=" + age +
+                ", email='" + email + '\'' +
+                ", phoneNumber='" + phoneNumber + '\'' +
+                '}';
+    }
+}
+```
+![user_validation_1](./images/user_validation_1.png)
+![user_validation_2](./images/user_validation_2.png)
