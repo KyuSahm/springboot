@@ -2487,3 +2487,282 @@ public class User {
 ```
 ![user_validation_1](./images/user_validation_1.png)
 ![user_validation_2](./images/user_validation_2.png)
+## SpringBoot Custom Validation 생성 방법
+- Custom Validation
+  - 방법1: 메소드에 ``@AssertTrue``와 ``@AssertFalse`` annotation을 붙인 후, Custom Logic 적용 가능
+  - 방법2: 사용자가 새로운 Annotation을 정의한 후, ConstraintValidator를 구현하여 재사용이 가능한 Custom Logic 적용 가능
+- ``@AssertTrue``와 ``@AssertFalse`` 사용 방법
+  - 필드에 annotation되면, 해당 값이 True 또는 False인지 검증
+  - 메소드에 annotation되면, 해당 메소드를 SpringBoot Framework가 필요한 상황에서 호출해 보는 것으로 보임
+    - **단, 메소드가 isXXXX()처럼 is로 시작되어야 함**
+- 메소드에 사용한 예
+  - 문제점은 DTO class마다 해당 메소드가 존재하므로, 중복이 발생할 수 있음
+    - 더 좋은 방법은 Annotation을 직접 만들어 주면 됨
+```java
+package com.example.validation.dto;
+....
+public class User {
+    @NotBlank(message = "이름은 필수 입려사항입니다")
+    private String name;
+    @Max(value = 100, message = "나이는 100살이하이어야 합니다")
+    private int age;
+    @Email
+    private String email;
+    @Pattern(regexp ="^\\d{2,3}-\\d{3,4}-\\d{4}$", message = "핸드폰 번호의 양식과 맞지 않습니다.")
+    private String phoneNumber;
+
+    @Size(min =6, max = 6)
+    private String reqYearMonth; //yyyyMM
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public void setAge(int age) {
+        this.age = age;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    public String getReqYearMonth() {
+        return reqYearMonth;
+    }
+
+    public void setReqYearMonth(String reqYearMonth) {
+        this.reqYearMonth = reqYearMonth;
+    }
+
+    @AssertTrue(message = "연월에 맞는 형식(yyyyMM)이어야 합니다")
+    public boolean isReqYearMonthValidation() {
+        String tempDate = getReqYearMonth() + "01";
+        try {
+            LocalDate localDate = LocalDate.parse(tempDate, DateTimeFormatter.ofPattern("yyyyMMdd"));
+            return true;
+        } catch (DateTimeParseException exception) {
+            return false;
+        }
+    }
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "name='" + name + '\'' +
+                ", age=" + age +
+                ", email='" + email + '\'' +
+                ", phoneNumber='" + phoneNumber + '\'' +
+                ", reqYearMonth='" + reqYearMonth + '\'' +
+                '}';
+    }
+}
+```
+- Annotation을 직접 만드는 예
+  - ``@Email``을 참조해서 만들어 보자
+  - 여러 DTO에서 사용가능하기 때문에 중복을 피할 수 있음
+  - Step 01: 사용자 정의 Annotation을 생성
+    - ``@Constraint(validatedBy = {YearMonthValidator.class})``처럼, Step 02의 Validation class을 명시해줘야 함 
+  - Step 02: 해당 Annotation을 사용하는 ``ConstraintValidator<A extends Annotation, T>``을 구현한 클래스를 정의
+  - Step 03: 해당 Annotation을 관련 Field에 적용
+```java
+package com.example.validation;
+....
+@SpringBootApplication
+public class ValidationApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(ValidationApplication.class, args);
+	}
+
+}
+
+package com.example.validation.controller;
+....
+@RestController
+@RequestMapping("/api")
+public class ApiController {
+    @PostMapping("/user")
+    public ResponseEntity<User> user(@Valid @RequestBody User user) {
+        System.out.println(user);
+        return ResponseEntity.ok(user);
+    }
+
+    @PostMapping("/user2")
+    public ResponseEntity<Object> user(@Valid @RequestBody User user, BindingResult bindingResult) {
+        System.out.println(user);
+        if (bindingResult.hasErrors()) {
+            StringBuilder sb = new StringBuilder();
+            bindingResult.getAllErrors().forEach(error -> {
+                FieldError fieldError = (FieldError) error;
+                String message = error.getDefaultMessage();
+                System.out.printf("Validation error - field: %s, message: %s\n", fieldError.getField(), message);
+                sb.append("Validation error - field: ").append(fieldError.getField());
+                sb.append(", message: ").append(message).append("\n");
+            });
+
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(sb.toString());
+        }
+
+        return ResponseEntity.ok(user);
+    }
+}
+
+package com.example.validation.dto;
+....
+public class User {
+    @NotBlank(message = "이름은 필수 입려사항입니다")
+    private String name;
+    @Max(value = 100, message = "나이는 100살이하이어야 합니다")
+    private int age;
+    @Email
+    private String email;
+    @Pattern(regexp ="^\\d{2,3}-\\d{3,4}-\\d{4}$", message = "핸드폰 번호의 양식과 맞지 않습니다.")
+    private String phoneNumber;
+
+    //@Size(min =6, max = 6)
+    @YearMonth(pattern = "yyyyMM", message = "연월에 맞는 형식(yyyyMM)이어야 합니다")
+    private String reqYearMonth; //yyyyMM
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public void setAge(int age) {
+        this.age = age;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    public String getReqYearMonth() {
+        return reqYearMonth;
+    }
+
+    public void setReqYearMonth(String reqYearMonth) {
+        this.reqYearMonth = reqYearMonth;
+    }
+
+    /*
+    @AssertTrue(message = "연월에 맞는 형식(yyyyMM)이어야 합니다")
+    public boolean isReqYearMonthValidation() {
+        String tempDate = getReqYearMonth() + "01";
+        try {
+            LocalDate localDate = LocalDate.parse(tempDate, DateTimeFormatter.ofPattern("yyyyMMdd"));
+            return true;
+        } catch (DateTimeParseException exception) {
+            return false;
+        }
+    }*/
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "name='" + name + '\'' +
+                ", age=" + age +
+                ", email='" + email + '\'' +
+                ", phoneNumber='" + phoneNumber + '\'' +
+                ", reqYearMonth='" + reqYearMonth + '\'' +
+                '}';
+    }
+}
+
+package com.example.validation.annotation;
+
+import com.example.validation.validator.YearMonthValidator;
+
+import javax.validation.Constraint;
+import javax.validation.Payload;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+
+import static java.lang.annotation.ElementType.*;
+import static java.lang.annotation.ElementType.TYPE_USE;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+@Constraint(validatedBy = {YearMonthValidator.class})
+@Target({ METHOD, FIELD, ANNOTATION_TYPE, CONSTRUCTOR, PARAMETER, TYPE_USE })
+@Retention(RUNTIME)
+public @interface YearMonth {
+    String message() default "지정한 년월 형식에 맞는 데이터이어야 합니다";
+
+    Class<?>[] groups() default { };
+
+    Class<? extends Payload>[] payload() default { };
+
+    String pattern() default "yyyyMM";
+}
+
+package com.example.validation.validator;
+
+import com.example.validation.annotation.YearMonth;
+import javax.validation.ConstraintValidator;
+import javax.validation.ConstraintValidatorContext;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+
+public class YearMonthValidator implements ConstraintValidator<YearMonth, String> {
+    private String pattern;
+
+    @Override
+    public void initialize(YearMonth constraintAnnotation) {
+        ConstraintValidator.super.initialize(constraintAnnotation);
+        // 구현 사항
+        this.pattern = constraintAnnotation.pattern();
+    }
+
+    @Override
+    public boolean isValid(String value, ConstraintValidatorContext context) {
+        // 구현 사항
+        String tempDate = value + "01";
+        try {
+            LocalDate localDate = LocalDate.parse(tempDate, DateTimeFormatter.ofPattern(this.pattern + "dd"));
+            return true;
+        } catch (DateTimeParseException exception) {
+            return false;
+        }
+    }
+}
+```
+20:04
