@@ -2495,7 +2495,7 @@ public class User {
   - 필드에 annotation되면, 해당 값이 True 또는 False인지 검증
   - 메소드에 annotation되면, 해당 메소드를 SpringBoot Framework가 필요한 상황에서 호출해 보는 것으로 보임
     - **단, 메소드가 isXXXX()처럼 is로 시작되어야 함**
-- 메소드에 사용한 예
+- 방법1: 메소드에 ``@AssertTrue``를 사용한 예
   - 문제점은 DTO class마다 해당 메소드가 존재하므로, 중복이 발생할 수 있음
     - 더 좋은 방법은 Annotation을 직접 만들어 주면 됨
 ```java
@@ -2577,7 +2577,7 @@ public class User {
     }
 }
 ```
-- Annotation을 직접 만드는 예
+- 방법2: Annotation을 직접 만드는 예
   - ``@Email``을 참조해서 만들어 보자
   - 여러 DTO에서 사용가능하기 때문에 중복을 피할 수 있음
   - Step 01: 사용자 정의 Annotation을 생성
@@ -2765,4 +2765,145 @@ public class YearMonthValidator implements ConstraintValidator<YearMonth, String
     }
 }
 ```
-20:04
+- 클래스 내부에 다른 Object를 참조하는 필드를 가지는 예
+  - **주의 사항: ``@Valid``를 해당 필드에 붙여줘야 해당 필드가 참조하는 클래스의 필드도 Validation이 체크 됨**
+```java
+public class User {
+    ....
+    @Valid
+    @JsonProperty("car_list")
+    private List<Car> carList;
+    ....
+}
+```
+```java
+package com.example.validation.dto;
+....
+
+public class User {
+    @NotBlank(message = "이름은 필수 입려사항입니다")
+    private String name;
+    @Max(value = 100, message = "나이는 100살이하이어야 합니다")
+    private int age;
+    @Email
+    private String email;
+    @Pattern(regexp ="^\\d{2,3}-\\d{3,4}-\\d{4}$", message = "핸드폰 번호의 양식과 맞지 않습니다.")
+    @JsonProperty("phone_number")
+    private String phoneNumber;
+
+    @YearMonth(pattern = "yyyyMM", message = "연월에 맞는 형식(yyyyMM)이어야 합니다")
+    @JsonProperty("req_year_month")
+    private String reqYearMonth; //yyyyMM
+
+    @Valid
+    @JsonProperty("car_list")
+    private List<Car> carList;
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public void setAge(int age) {
+        this.age = age;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    public String getReqYearMonth() {
+        return reqYearMonth;
+    }
+
+    public void setReqYearMonth(String reqYearMonth) {
+        this.reqYearMonth = reqYearMonth;
+    }
+
+    public List<Car> getCarList() {
+        return carList;
+    }
+
+    public void setCarList(List<Car> carList) {
+        this.carList = carList;
+    }
+    
+    @Override
+    public String toString() {
+        return "User{" +
+                "name='" + name + '\'' +
+                ", age=" + age +
+                ", email='" + email + '\'' +
+                ", phoneNumber='" + phoneNumber + '\'' +
+                ", reqYearMonth='" + reqYearMonth + '\'' +
+                ", carList=" + carList +
+                '}';
+    }
+}
+
+package com.example.validation.dto;
+....
+public class Car {
+    @NotBlank
+    private String name;
+    @NotBlank
+    @JsonProperty("car_number")
+    private String carNumber;
+    @NotBlank
+    @JsonProperty("TYPE")
+    private String type;
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getCarNumber() {
+        return carNumber;
+    }
+
+    public void setCarNumber(String carNumber) {
+        this.carNumber = carNumber;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    @Override
+    public String toString() {
+        return "Car{" +
+                "name='" + name + '\'' +
+                ", carNumber='" + carNumber + '\'' +
+                ", type='" + type + '\'' +
+                '}';
+    }
+}
+```
+![Reference_Object_Validation](./images/Reference_Object_Validation.png)
