@@ -2372,7 +2372,18 @@ public void run(String account, String pw, int age) {
   - 인자에 ``@Valid``를 붙여야 Object Validation
     - 예: ``public ResponseEntity<User> user(@Valid @RequestBody User user) {}``
   - DTO class이 필드에 사용하고자 하는 annotation을 붙여줌
-  - 클라이언트에 HTTPStatus 400이 전달되고, 원인은 서버의 로그를 통해 확인 가능  
+  - Validation이 실패한 경우
+    - 클라이언트에 HTTPStatus 400이 전달
+    - 클라이언트에 전달되는 Reponse Body는 아래의 Json 처럼 전달
+    - 원인은 서버의 로그를 통해 확인 가능
+```json
+{
+  "timestamp": "2022-05-21T03:54:47.706+00:00",
+  "status": 400,
+  "error": "Bad Request",
+  "path": "/api/user"
+}
+```    
 - Controller Method에 ``BindingResult`` 인자를 추가해서 실제 에러 정보를 추출하는 것도 가능
   - 실습 코드 참조
 - Validation Annotation에 ``message`` 속성을 추가하여 사용자가 원하는 메시지를 입력 가능
@@ -2907,3 +2918,157 @@ public class Car {
 }
 ```
 ![Reference_Object_Validation](./images/Reference_Object_Validation.png)
+## SpringBoot Exception
+- Exception 처리: Web Application 입장에서 에러가 났을 때 내려 줄 수 있는 방법은 많지 않다
+  - 방법1: 에러 페이지 (정확한 에러의 원인을 보여주지 않는 것이 좋음)
+  - 방법2: 4XX Error or 5XX Error
+  - 방법3: Client가 200외의 처리를 못할 때는 200을 내려주고, 별도의 에러 메시지 전달  
+- Exception 처리 Annotation
+
+| Annotation | 의미 |
+| ----------------- | ---------------------------------------------------|
+| @ControllerAdvice, @RestControllerAdvice | Global 예외 처리 및 특정 Package/Controller 예외처리 |
+| @ExceptionHandler | 특정 Controller의 예외처리 |
+- ``@ControllerAdvice`` vs ``@RestControllerAdvice``
+  - https://javachoi.tistory.com/253
+  - ``@ControllerAdvice``란?
+    - ``@ExceptionHandler, @ModelAttribute, @InitBinder``가 적용된 메서드들을 AOP를 적용해 Controller 단에 적용하기 위한 Annotation
+  - ``@RestControllerAdvice``란?
+    - ``@ResponseBody + @ControllerAdvice => @RestControllerAdvice``
+- Spring의 Default Global Exception Handler가 동작하면? 
+  - Controller에서 Exception을 Throw하면?
+    - HTTP Status code는 500 error가 발생
+    - Response Body는 아래와 같은 형태임
+```json
+{
+  "timestamp": "2022-05-21T03:51:09.108+00:00",
+  "status": 500,
+  "error": "Internal Server Error",
+  "path": "/api/user"
+}
+```
+  - Spring Validation이 실패한 경우
+    - 클라이언트에 HTTPStatus 400이 전달
+    - 클라이언트에 전달되는 Reponse Body는 아래의 Json 처럼 전달
+    - 원인은 서버의 로그를 통해 확인 가능
+```json
+{
+  "timestamp": "2022-05-21T03:54:47.706+00:00",
+  "status": 400,
+  "error": "Bad Request",
+  "path": "/api/user"
+}
+```
+- 사용자가 정의한 Global한 예외 처리 방법
+  - 예외 처리 클래스에 ``@RestControllerAdvice`` 또는 ``@ControllerAdvice``를 붙임
+    - ``@RestControllerAdvice``: 전체 시스템에 적용
+    - ``@RestControllerAdvice(basePackages = "com.example.exception.controller")``: 특정 Package에 적용
+    - ``@RestControllerAdvice(basePackageClasses = "XXX")``: 특정 클래스들에 적용
+  - 처리 메소드에 ``@ExceptionHandler``를 붙이고, 처리하고자 하는 Exception 종류를 value에 명시    
+- 사용자가 Controller에 Exception Handler 메소드를 정의하는 방법
+  - Global한 ``@ExceptionHandler``가 있어서 중복되는 경우, Controller 클래스의 ``@ExceptionHandler``가 우선함
+```java
+package com.example.exception;
+....
+@SpringBootApplication
+public class ExceptionApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(ExceptionApplication.class, args);
+	}
+
+}
+
+package com.example.exception.controller;
+....
+@RestController
+@RequestMapping("/api")
+public class ApiController {
+    @GetMapping("/user")
+    public User get(@RequestParam(required = true) String name,
+                    @RequestParam(required = false) Integer age) {
+        User user = new User();
+        user.setName(name);
+        user.setAge(age);
+
+        // crate NullPointerException
+        int newAge = age + 10;
+
+        return user;
+    }
+
+    @PostMapping("/user")
+    public User post(@Valid @RequestBody User user) {
+        System.out.println(user);
+        return user;
+    }
+
+    @ExceptionHandler(value = MethodArgumentNotValidException.class)
+    public ResponseEntity<String> processMethodArgumentNotValidException(MethodArgumentNotValidException e) {
+        System.out.println("*********Local Controller Advice for ApiController*******");
+        System.out.println(e.getClass().getName());
+        System.out.println(e.getLocalizedMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("잘못된 형식의 인자값이 존재합니다.\n" + e.getLocalizedMessage());
+    }
+}
+
+package com.example.exception.advice;
+....
+//@RestControllerAdvice
+@RestControllerAdvice(basePackages = "com.example.exception.controller")
+public class GlobalControllerAdvice {
+    @ExceptionHandler(value = MethodArgumentNotValidException.class)
+    public ResponseEntity<String> processMethodArgumentNotValidException(MethodArgumentNotValidException e) {
+        System.out.println("*********Global Controller Advice for MethodArgumentNotValidException *******");
+        System.out.println(e.getClass().getName());
+        System.out.println(e.getLocalizedMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("잘못된 형식의 인자값이 존재합니다.\n" + e.getLocalizedMessage());
+    }
+
+    @ExceptionHandler(value = Exception.class)
+    public ResponseEntity<String> processException(Exception e) {
+        System.out.println("*********Global Controller Advice for Exception *******");
+        System.out.println(e.getClass().getName());
+        System.out.println(e.getLocalizedMessage());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("서버 내부의 에러가 발생하였습니다.");
+    }
+}
+
+package com.example.exception.dto;
+....
+public class User {
+    @NotEmpty
+    @Size(min = 1, max = 100)
+    private String name;
+    @Min(1)
+    @NotNull
+    private Integer age;
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public Integer getAge() {
+        return age;
+    }
+
+    public void setAge(Integer age) {
+        this.age = age;
+    }
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "name='" + name + '\'' +
+                ", age=" + age +
+                '}';
+    }
+}
+```
+![SpringBoot_Exception_1](./images/SpringBoot_Exception_1.png)
+![SpringBoot_Exception_2](./images/SpringBoot_Exception_2.png)
+## Spring Boot Validation을 통한 모범 사례 (1)   
