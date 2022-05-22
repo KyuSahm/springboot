@@ -3071,4 +3071,295 @@ public class User {
 ```
 ![SpringBoot_Exception_1](./images/SpringBoot_Exception_1.png)
 ![SpringBoot_Exception_2](./images/SpringBoot_Exception_2.png)
-## Spring Boot Validation을 통한 모범 사례 (1)   
+## Spring Boot Validation을 통한 모범 사례
+- ``@RestControllerAdvice(basePackageClasses = xxx.class)``를 통한 특정 Controller용 사용자 정의 예외 처리
+  - 예: ``@RestControllerAdvice(basePackageClasses = ApiController.class)``   
+- ``@RequestBody``가 아닌 ``@RequestParam``에 Validation을 적용하는 방법
+  - Step 01. 관련 Controller Class에 ``@Validated``를 annotate 처리
+  - Step 02. 관련 Controller Class에 ``@Validated``를 annotate 처리
+```java
+@Validated
+@RestController
+@RequestMapping("/api")
+public class ApiController {
+    @GetMapping("/user")
+    public User get(@Size(min = 1) String name,
+                    @NotNull Integer age) {
+        User user = new User();
+        user.setName(name);
+        user.setAge(age);
+        return user;
+    }
+```
+- 에러 메시지를 구조화해서 Client에게 응답하는 방법
+  - dto에 Error Response를 구조화하는 클래스를 정의: ``ErrorResponse, ErrorDetail`` 클래스
+  - 각 Exception마다 필요한 정보를 추출하는 로직 구현
+- 실습
+```java
+package com.example.validationexample;
+....
+@SpringBootApplication
+public class ValidationExampleApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(ValidationExampleApplication.class, args);
+	}
+
+}
+
+package com.example.validationexample.controller;
+....
+
+@Validated
+@RestController
+@RequestMapping("/api")
+public class ApiController {
+    @GetMapping("/user")
+    public User get(@Size(min = 2, max = 50) String name,
+                    @NotNull @Min(1) @Max(200) Integer age) {
+        User user = new User();
+        user.setName(name);
+        user.setAge(age);
+
+        Integer newAge = null;
+        newAge += newAge;
+        return user;
+    }
+
+    @PostMapping("/user")
+    public User post(@Valid @RequestBody User user) {
+        System.out.println(user);
+        return user;
+    }
+}
+
+package com.example.validationexample.dto;
+....
+
+public class User {
+    @NotEmpty
+    @Size(min = 1, max = 100)
+    private String name;
+    @Min(1)
+    @NotNull
+    private Integer age;
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public Integer getAge() {
+        return age;
+    }
+
+    public void setAge(Integer age) {
+        this.age = age;
+    }
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "name='" + name + '\'' +
+                ", age=" + age +
+                '}';
+    }
+}
+
+package com.example.validationexample.advice;
+....
+@RestControllerAdvice(basePackageClasses = ApiController.class)
+public class ApiControllerAdvice {
+    @ExceptionHandler(value = ConstraintViolationException.class)
+    public ResponseEntity<ErrorResponse> processConstraintViolationException(ConstraintViolationException e,
+                                                                      HttpServletRequest request) {
+        List<ErrorDetail> errorList = new ArrayList<>();
+        e.getConstraintViolations().forEach(violation -> {
+            Stream<Path.Node> stream = StreamSupport.stream(violation.getPropertyPath().spliterator(), false);
+            List<Path.Node> nodeList = stream.collect(Collectors.toList());
+            String argumentName = nodeList.get(nodeList.size() - 1).getName();
+            Object invalidValue = violation.getInvalidValue();
+            ErrorDetail errorMessage = new ErrorDetail(argumentName,
+                    violation.getMessage(),
+                    invalidValue == null ? "" : invalidValue.toString());
+
+            errorList.add(errorMessage);
+        });
+
+        ErrorResponse errorResponse = new ErrorResponse(HttpStatus.BAD_REQUEST.toString(),
+                request.getRequestURI(),
+                "잘못된 형식의 인자값이 존재합니다",
+                "FAIL",
+                errorList);
+
+        System.out.printf("exception occurred. exception class: %s, message: %s\n", e.getClass().getName(), e.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
+    @ExceptionHandler(value = MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> processMethodArgumentNotValidException(MethodArgumentNotValidException e,
+                                                                         HttpServletRequest request) {
+        List<ErrorDetail> errorList = new ArrayList<>();
+
+        BindingResult bindingResult = e.getBindingResult();
+        bindingResult.getAllErrors().forEach(error -> {
+            FieldError fieldError = (FieldError) error;
+            String fieldName = fieldError.getField();
+            Object value = fieldError.getRejectedValue();
+            String message = fieldError.getDefaultMessage();
+
+            ErrorDetail errorMessage = new ErrorDetail(fieldName, message, value.toString());
+            errorList.add(errorMessage);
+        });
+
+        ErrorResponse errorResponse = new ErrorResponse(HttpStatus.BAD_REQUEST.toString(),
+                request.getRequestURI(),
+                "잘못된 형식의 인자값이 존재합니다",
+                "FAIL",
+                errorList);
+
+        System.out.printf("exception occurred. exception class: %s, message: %s\n", e.getClass().getName(), e.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
+    @ExceptionHandler(value = Exception.class)
+    public ResponseEntity<ErrorResponse> processException(Exception e, HttpServletRequest request) {
+        ErrorResponse errorResponse = new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.toString(),
+                request.getRequestURI(),
+                "서버 내부의 에러가 발생하였습니다",
+                "FAIL");
+
+        System.out.printf("exception occurred. exception class: %s, message: %s\n", e.getClass().getName(), e.getMessage());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+}
+
+package com.example.validationexample.dto;
+
+public class ErrorResponse {
+    String statusCode;
+    String requestUrl;
+    String message;
+    String resultCode;
+
+    List<ErrorDetail> errorDetailList;
+
+    public ErrorResponse(String statusCode, String requestUrl, String message, String resultCode) {
+        this.statusCode = statusCode;
+        this.requestUrl = requestUrl;
+        this.message = message;
+        this.resultCode = resultCode;
+    }
+
+    public ErrorResponse(String statusCode, String requestUrl, String message, String resultCode,
+                         List<ErrorDetail> errorDetailList) {
+        this(statusCode, requestUrl, message, resultCode);
+        this.errorDetailList = errorDetailList;
+    }
+
+    public String getStatusCode() {
+        return statusCode;
+    }
+
+    public void setStatusCode(String statusCode) {
+        this.statusCode = statusCode;
+    }
+
+    public String getRequestUrl() {
+        return requestUrl;
+    }
+
+    public void setRequestUrl(String requestUrl) {
+        this.requestUrl = requestUrl;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
+
+    public String getResultCode() {
+        return resultCode;
+    }
+
+    public void setResultCode(String resultCode) {
+        this.resultCode = resultCode;
+    }
+
+    public List<ErrorDetail> getErrorList() {
+        return errorDetailList;
+    }
+
+    public void setErrorList(List<ErrorDetail> errorDetailList) {
+        this.errorDetailList = errorDetailList;
+    }
+
+    @Override
+    public String toString() {
+        return "ErrorResponse{" +
+                "statusCode='" + statusCode + '\'' +
+                ", requestUrl='" + requestUrl + '\'' +
+                ", message='" + message + '\'' +
+                ", resultCode='" + resultCode + '\'' +
+                ", errorList=" + errorDetailList +
+                '}';
+    }
+}
+
+package com.example.validationexample.dto;
+
+public class ErrorDetail {
+    private String field;
+    private String message;
+    private String invalidValue;
+
+    public ErrorDetail(String field, String message, String invalidValue) {
+        this.field = field;
+        this.message = message;
+        this.invalidValue = invalidValue;
+    }
+
+    public String getField() {
+        return field;
+    }
+
+    public void setField(String field) {
+        this.field = field;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
+
+    public String getInvalidValue() {
+        return invalidValue;
+    }
+
+    public void setInvalidValue(String invalidValue) {
+        this.invalidValue = invalidValue;
+    }
+
+    @Override
+    public String toString() {
+        return "ErrorDetail{" +
+                "field='" + field + '\'' +
+                ", message='" + message + '\'' +
+                ", invalidValue='" + invalidValue + '\'' +
+                '}';
+    }
+}
+```
+![Validation_Example_1](./images/Validation_Example_1.png)
+![Validation_Example_2](./images/Validation_Example_2.png)
+![Validation_Example_3](./images/Validation_Example_3.png)
+## Filter-Interceptor의 활용
