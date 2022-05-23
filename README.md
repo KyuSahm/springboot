@@ -3362,4 +3362,65 @@ public class ErrorDetail {
 ![Validation_Example_1](./images/Validation_Example_1.png)
 ![Validation_Example_2](./images/Validation_Example_2.png)
 ![Validation_Example_3](./images/Validation_Example_3.png)
-## Filter-Interceptor의 활용
+## SpringBoot Filter와 Interceptor
+- Filter
+  - Spring Framework에서 Client로부터 오는 요청/응답에 대해서 최초/최종 단계의 위치에 존재하는 영역
+  - Spring에 의해서 데이터가 변환되기 전의 순수한 Client의 요청과 Spring의 최종 응답 값을 확인 가능
+  - 순수한 Client의 요청과 Spring의 최종 응답 값을 변경할 수 있음
+  - **유일하게 ServletRequest, ServletRespons의 객체를 변환할 수 있음**
+  - Spring Framework에서는 request/response의 Logging 용도로 활용
+  - **Spring Framework에서는 인증과 관련된 Logic들을 해당 Filter에서 처리**
+  - 이를 선/후 처리함으로써, Service Business Logic와 분리시킴
+- Spring MVC Request Life Cycle
+  - Request -> Filter -> DispatcherServlet -> Interceptor -> AOP -> Controller 순으로 호출
+![Spring_MVC_Request_Life_Cycle](./images/Spring_MVC_Request_Life_Cycle.png)
+- Filter를 학습하기 위한 프로젝트 생성: ``Lombok``을 Dependencies에 추가
+![Spring_Filter_Project](./images/Spring_Filter_Project.png)
+- Lombok란?
+  - ``@Getter``: Getter Method 코드 생성
+  - ``@Setter``: Setter Method 코드 생성
+  - ``@NoArgsConstructor``: 기본 생성자 코드 생성
+  - ``@AllArgsConstructor``: 모든 Field를 인자로 갖는 생성자 코드 생성
+  - ``@RequiredArgsConstructor``: 초기화 되지않은 final 필드나, ``@NonNull`` 이 붙은 필드에 대해 생성자를 생성
+  - ``@Data``:  ``@ToString, @EqualsAndHashCode, @Getter / @Setter and @RequiredArgsConstructor``
+  ![Lombok_Annotations](./images/Lombok_Annotations.png)
+- Lombok 사용을 위한 ``build.gradle`` 설정
+  - ``annotationProcessor``
+    - annotation processor로 Lombok 설정
+  - ``compileOnly``
+    - 컴파일 단계에서만 lombok를 사용 (실행시 필요 없음)
+    - 컴파일 단계에서 hook에 의해 필요한 코드가 생성된 소스를 만들어 냄
+```java
+dependencies {
+    ....
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+}
+```
+- annotation processor이란?
+  - 자바 컴파일러의 컴파일 단계에서, 유저가 정의한 어노테이션의 소스코드를 분석하고 처리하기 위해 사용되는 Hook
+  - 컴파일 에러나 컴파일 경고를 만들어내거나, 소스코드(.java)와 바이트코드(.class)를 내보내기도 함
+- ``SLF4J(Simple Logging Facade for Java)``란?
+  - https://gmlwjd9405.github.io/2019/01/04/logging-with-slf4j.html  
+  - ``Log4J`` 또는 ``Logback``과 같은 백엔드 Logging Framework의 facade pattern
+  - 다양한 Logging Framework에 대한 추상화
+  - ``SLF4J``는 추상 로깅 프레임워크이기 때문에 단독으로는 사용하지 않음
+  - ``SLF4J`` api를 사용하면 구현체의 종류에 상관없이 일관된 로깅 코드를 작성할 수 있음
+  - 배포할 때 원하는 Logging Framework를 선택할 수 있음
+    - 예: ``logback/log4j/jdk14 - SLF4J - app``
+    - 개발할 때, ``SLF4J`` API를 사용하여 로깅 코드를 작성한다.
+    - 배포할 때, 바인딩된 Logging Framework가 실제 로깅 코드를 수행
+  - Logging Framework 간에 쉬운 전환이 가능
+  - SLF4J는 세 가지 모듈을 제공한다. (API / Binding / Bridging)
+    - ``SLF4J`` API 활성화
+      - ``slf4j-api-1.7.25.jar`` (2017년 기준)
+      - ``slf4j-api-1.8.0-beta2.jar`` (2019년 기준)
+    - ``SLF4J`` 바인딩(.jar)
+      - **SLF4J 인터페이스를 로깅 구현체와 연결하는 어댑터 역할**을 하는 라이브러리
+      - 사용하길 원하는 Logging Framework에 대한 SLF4J 바인딩을 추가해야 함
+      - 반드시 한개만 바인딩해서 사용
+    - ``SLF4J`` Bridging Modules
+      - 다른 로깅 API로의 Logger 호출을 ``SLF4J 인터페이스로 연결(redirect)하여 SLF4J API가 대신 처리``할 수 있도록 하는 일종의 어댑터 역할을 하는 라이브러리
+      - 다른 로깅 API -> Bridge(redirect) -> SLF4J API
+![SLF4J](./images/SLF4J.png)
+09:00
