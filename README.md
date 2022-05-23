@@ -3401,6 +3401,7 @@ dependencies {
   - 자바 컴파일러의 컴파일 단계에서, 유저가 정의한 어노테이션의 소스코드를 분석하고 처리하기 위해 사용되는 Hook
   - 컴파일 에러나 컴파일 경고를 만들어내거나, 소스코드(.java)와 바이트코드(.class)를 내보내기도 함
 - ``SLF4J(Simple Logging Facade for Java)``란?
+![SLF4J](./images/SLF4J.png)
   - https://gmlwjd9405.github.io/2019/01/04/logging-with-slf4j.html  
   - ``Log4J`` 또는 ``Logback``과 같은 백엔드 Logging Framework의 facade pattern
   - 다양한 Logging Framework에 대한 추상화
@@ -3422,5 +3423,5 @@ dependencies {
     - ``SLF4J`` Bridging Modules
       - 다른 로깅 API로의 Logger 호출을 ``SLF4J 인터페이스로 연결(redirect)하여 SLF4J API가 대신 처리``할 수 있도록 하는 일종의 어댑터 역할을 하는 라이브러리
       - 다른 로깅 API -> Bridge(redirect) -> SLF4J API
-![SLF4J](./images/SLF4J.png)
+
 09:00
