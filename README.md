@@ -3368,7 +3368,7 @@ public class ErrorDetail {
   - Spring에 의해서 데이터가 변환되기 전의 순수한 Client의 요청과 Spring의 최종 응답 값을 확인 가능
   - 순수한 Client의 요청과 Spring의 최종 응답 값을 변경할 수 있음
   - **유일하게 ServletRequest, ServletRespons의 객체를 변환할 수 있음**
-  - Spring Framework에서는 request/response의 Logging 용도로 활용
+  - **Spring Framework에서는 request/response의 Logging 용도로 활용**
   - **Spring Framework에서는 인증과 관련된 Logic들을 해당 Filter에서 처리**
   - 이를 선/후 처리함으로써, Service Business Logic와 분리시킴
 - Spring MVC Request Life Cycle
@@ -3483,4 +3483,159 @@ java.lang.IllegalStateException: getReader() has already been called for this re
 	at com.example.filter.filter.GlobalFilter.doFilter(GlobalFilter.java:26) ~[main/:na]
 ....    
 ```
-28:00
+- Content를 Cache하는 ContentCachingRequestWrapper와 ContentCachingResponstWrapper를 사용하는 방법
+    - ``chain.doFilter()`` 이후에 cached된 content 내용을 확인할 수 있음
+    - Cached content를 Response의 내용으로 넘겨주기 위해 ``contentCachingResponse.copyBodyToResponse()`` 호출해야 함
+```java
+package com.example.filter;
+....
+@SpringBootApplication
+public class FilterApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(FilterApplication.class, args);
+	}
+
+}
+
+package com.example.filter.controller;
+....
+@Slf4j
+@RestController
+@RequestMapping("/api")
+public class ApiController {
+    @PostMapping("/user")
+    public User user(@RequestBody User user) {
+        log.info("User: {}", user);
+        return user;
+    }
+}
+
+package com.example.filter.dto;
+....
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class User {
+    private String name;
+    private int age;
+}
+
+package com.example.filter.filter;
+....
+@Slf4j
+@Component
+public class GlobalFilter implements Filter {
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
+        ContentCachingRequestWrapper contentCachingRequest = new ContentCachingRequestWrapper((HttpServletRequest)request);
+        ContentCachingResponseWrapper contentCachingResponse = new ContentCachingResponseWrapper((HttpServletResponse)response);
+
+        chain.doFilter(contentCachingRequest, contentCachingResponse);
+
+        String reqContent = new String(contentCachingRequest.getContentAsByteArray());
+        log.info("request uri: {}, requestBody: {}", contentCachingRequest.getRequestURI(), reqContent);
+
+        String resContent = new String(contentCachingResponse.getContentAsByteArray());
+        int httpStatusCode = contentCachingResponse.getStatus();
+
+        // should copy the cached content to response
+        contentCachingResponse.copyBodyToResponse();
+        log.info("response status: {}, responseBody: {}", httpStatusCode, resContent);
+
+    }
+}
+```
+```bash
+# 아래와 같이 request와 response에 대해서 logging를 남길 수 있음
+....
+2022-05-24 22:47:36.040  INFO 27848 --- [nio-8080-exec-4] c.e.filter.controller.ApiController      : User: User(name=설현, age=27)
+2022-05-24 22:47:36.041  INFO 27848 --- [nio-8080-exec-4] com.example.filter.filter.GlobalFilter   : request uri: /api/user, requestBody: { 
+  "name": "설현",
+  "age":27
+}
+2022-05-24 22:47:36.042  INFO 27848 --- [nio-8080-exec-4] com.example.filter.filter.GlobalFilter   : response status: 200, responseBody: {"name":"설현","age":27}
+```
+![Filter_Example](./images/Filter_Example.png)
+- 특정 URL에만 Filter 적용하기
+  - main() 함수가 존재하는 클래스(``@SpringBootApplication``)에 ``@ServletComponentScan`` annotation 추가
+  - Filter 클래스에 ``@WebFilter`` annotation을 이용하여 ``urlPatterns``을 지정
+    - ``@WebFilter(urlPatterns = "/api/user/*")``: ``/api/user/*``에 맵핑되는 메소드에만 Filter 적용
+    - Filter 클래스에서 ``@Component``는 삭제해야 함
+```java
+package com.example.filter;
+....
+@SpringBootApplication
+@ServletComponentScan
+public class FilterApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(FilterApplication.class, args);
+	}
+
+}
+
+package com.example.filter.filter;
+....
+@Slf4j
+@WebFilter(urlPatterns = "/api/user/*")
+public class GlobalFilter implements Filter {
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
+        ContentCachingRequestWrapper contentCachingRequest = new ContentCachingRequestWrapper((HttpServletRequest)request);
+        ContentCachingResponseWrapper contentCachingResponse = new ContentCachingResponseWrapper((HttpServletResponse)response);
+
+        chain.doFilter(contentCachingRequest, contentCachingResponse);
+
+        String reqContent = new String(contentCachingRequest.getContentAsByteArray());
+        log.info("request uri: {}, requestBody: {}", contentCachingRequest.getRequestURI(), reqContent);
+
+        String resContent = new String(contentCachingResponse.getContentAsByteArray());
+        int httpStatusCode = contentCachingResponse.getStatus();
+
+        // should copy the cached content to response
+        contentCachingResponse.copyBodyToResponse();
+        log.info("response status: {}, responseBody: {}", httpStatusCode, resContent);
+
+    }
+}
+
+package com.example.filter.controller;
+....
+@Slf4j
+@RestController
+@RequestMapping("/api")
+public class ApiController {
+    @PostMapping("/user")
+    public User user(@RequestBody User user) {
+        log.info("User: {}", user);
+        return user;
+    }
+}
+
+package com.example.filter.controller;
+....
+@Slf4j
+@RestController
+@RequestMapping("/api")
+public class ApiTempController {
+    @GetMapping("/temp")
+    public String temp() {
+        log.info("temp() called");
+        return "temp";
+    }
+}
+```
+```bash
+# 실행 결과
+....
+# /api/user Post Method called
+2022-05-24 23:10:09.042  INFO 15188 --- [nio-8080-exec-5] c.e.filter.controller.ApiController      : User: User(name=설현, age=27)
+2022-05-24 23:10:09.043  INFO 15188 --- [nio-8080-exec-5] com.example.filter.filter.GlobalFilter   : request uri: /api/user, requestBody: { 
+  "name": "설현",
+  "age":27
+}
+2022-05-24 23:10:09.043  INFO 15188 --- [nio-8080-exec-5] com.example.filter.filter.GlobalFilter   : response status: 200, responseBody: {"name":"설현","age":27}
+# /api/temp Get Method called
+2022-05-24 23:13:42.360  INFO 15188 --- [nio-8080-exec-6] c.e.filter.controller.ApiTempController  : temp() called
+```

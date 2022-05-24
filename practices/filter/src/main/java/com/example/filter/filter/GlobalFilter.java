@@ -6,27 +6,17 @@ import org.springframework.web.util.ContentCachingRequestWrapper;
 import org.springframework.web.util.ContentCachingResponseWrapper;
 
 import javax.servlet.*;
+import javax.servlet.annotation.WebFilter;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
 import java.io.IOException;
 
 @Slf4j
-@Component
+@WebFilter(urlPatterns = "/api/user/*")
 public class GlobalFilter implements Filter {
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
-        // 전처리
-//        HttpServletRequest httpServletRequest = (HttpServletRequest)request;
-//        HttpServletResponse httpServletResponse = (HttpServletResponse)response;
-//
-//        String uri = httpServletRequest.getRequestURI();
-//        BufferedReader bufferedReader = httpServletRequest.getReader();
-//        bufferedReader.lines().forEach(line -> {
-//            log.info("uri: {}, line: {}", uri, line);
-//        });
-//        chain.doFilter(request, response);
-
         ContentCachingRequestWrapper contentCachingRequest = new ContentCachingRequestWrapper((HttpServletRequest)request);
         ContentCachingResponseWrapper contentCachingResponse = new ContentCachingResponseWrapper((HttpServletResponse)response);
 
@@ -37,6 +27,9 @@ public class GlobalFilter implements Filter {
 
         String resContent = new String(contentCachingResponse.getContentAsByteArray());
         int httpStatusCode = contentCachingResponse.getStatus();
+
+        // should copy the cached content to response
+        contentCachingResponse.copyBodyToResponse();
         log.info("response status: {}, responseBody: {}", httpStatusCode, resContent);
 
     }
