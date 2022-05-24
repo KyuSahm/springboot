@@ -3363,17 +3363,17 @@ public class ErrorDetail {
 ![Validation_Example_2](./images/Validation_Example_2.png)
 ![Validation_Example_3](./images/Validation_Example_3.png)
 ## SpringBoot Filter와 Interceptor
-- Filter
-  - Spring Framework에서 Client로부터 오는 요청/응답에 대해서 최초/최종 단계의 위치에 존재하는 영역
-  - Spring에 의해서 데이터가 변환되기 전의 순수한 Client의 요청과 Spring의 최종 응답 값을 확인 가능
-  - 순수한 Client의 요청과 Spring의 최종 응답 값을 변경할 수 있음
-  - **유일하게 ServletRequest, ServletRespons의 객체를 변환할 수 있음**
-  - **Spring Framework에서는 request/response의 Logging 용도로 활용**
-  - **Spring Framework에서는 인증과 관련된 Logic들을 해당 Filter에서 처리**
-  - 이를 선/후 처리함으로써, Service Business Logic와 분리시킴
 - Spring MVC Request Life Cycle
   - Request -> Filter -> DispatcherServlet -> Interceptor -> AOP -> Controller 순으로 호출
 ![Spring_MVC_Request_Life_Cycle](./images/Spring_MVC_Request_Life_Cycle.png)
+### Filter
+- Spring Framework에서 Client로부터 오는 요청/응답에 대해서 최초/최종 단계의 위치에 존재하는 영역
+- Spring에 의해서 데이터가 변환되기 전의 순수한 Client의 요청과 Spring의 최종 응답 값을 확인 가능
+- 순수한 Client의 요청과 Spring의 최종 응답 값을 변경할 수 있음
+- **유일하게 ServletRequest, ServletRespons의 객체를 변환할 수 있음**
+- **Spring Framework에서는 request/response의 Logging 용도로 활용**
+- **Spring Framework에서는 인증과 관련된 Logic들을 해당 Filter에서 처리**
+- 이를 선/후 처리함으로써, Service Business Logic와 분리시킴
 - Filter를 학습하기 위한 프로젝트 생성: ``Lombok``을 Dependencies에 추가
 ![Spring_Filter_Project](./images/Spring_Filter_Project.png)
 - Lombok란?
@@ -3639,3 +3639,13 @@ public class ApiTempController {
 # /api/temp Get Method called
 2022-05-24 23:13:42.360  INFO 15188 --- [nio-8080-exec-6] c.e.filter.controller.ApiTempController  : temp() called
 ```
+### Interceptor
+- Interceptor란 Filter와 매우 유사한 형태로 존재하지만, 차이점은 Spring Context에 등록됨
+  - Spring과 관련된 기능들을 사용 가능
+  - 이미 Controller Mapping까지 이루어졌기 때문에, 맵핑된 Method 정보도 가지고 있음
+  - Filter는 Web Application에 등록되기 때문에, Spring Context에 대한 내용은 알 수 없음
+- AOP와 유사한 기능을 제공할 수 있으며, 주로 **인증 단계**를 처리하거나, **Logging**를 하는 데에 사용한다.
+  - 강사의 경우, Logging은 Filter에서 하고, 인증은 Interceptor에서 처리
+- 이를 선/후 처리함으로써, Service Business Logic와 분리시킴
+
+04:30
