@@ -11,8 +11,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api")
 public class ApiController {
-    @PostMapping
+    @PostMapping("/user")
     public User user(@RequestBody User user) {
-
+        log.info("User: {}", user);
+        return user;
     }
 }

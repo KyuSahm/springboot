@@ -3423,5 +3423,64 @@ dependencies {
     - ``SLF4J`` Bridging Modules
       - 다른 로깅 API로의 Logger 호출을 ``SLF4J 인터페이스로 연결(redirect)하여 SLF4J API가 대신 처리``할 수 있도록 하는 일종의 어댑터 역할을 하는 라이브러리
       - 다른 로깅 API -> Bridge(redirect) -> SLF4J API
+- Filter를 구현하는 방법
+  - ``javax.servlet.Filter``를 구현한 클래스를 정의
+    - ``doFilter()`` 메소드를 재정의
+    - ``doFilter()`` 메소드내에서 ``chain.doFilter()`` 앞뒤로 전처리와 후처리를 구현하면 됨
+  - ``@Component`` annotation을 이용하여 Bean으로 등록
+  - 
+```java
+@Component
+public class GlobalFilter implements Filter {
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
+        // 전처리
+        chain.doFilter(request, response);
+        // 후처리
+    }
+}
+```
+- ServerRequest를 BufferedReader로 읽을 때와 ServerResponse를 BufferedWriter로 쓸 때의 문제점
+  - BufferedReader, BufferedWriter의 offset이 끝까지 가버리면 처음부터 다시 읽을 방법이 없음
+  - 해결책: Content를 Cache하는 ContentCachingRequestWrapper와 ContentCachingResponstWrapper를 이용하면 됨
+```java
+@Slf4j
+@Component
+public class GlobalFilter implements Filter {
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
+        // 전처리
+        HttpServletRequest httpServletRequest = (HttpServletRequest)request;
+        HttpServletResponse httpServletResponse = (HttpServletResponse)response;
 
-09:00
+        String uri = httpServletRequest.getRequestURI();
+        BufferedReader bufferedReader = httpServletRequest.getReader();
+        bufferedReader.lines().forEach(line -> {
+            log.info("uri: {}, line: {}", uri, line);
+        });
+
+        chain.doFilter(request, response);
+        // 후처리
+    }
+}
+```
+```bash
+2022-05-24 15:04:33.779  INFO 2372 --- [nio-8080-exec-5] com.example.filter.filter.GlobalFilter   : uri: /api/user, line: {
+2022-05-24 15:04:33.779  INFO 2372 --- [nio-8080-exec-5] com.example.filter.filter.GlobalFilter   : uri: /api/user, line:   "name": "전지현",
+2022-05-24 15:04:33.779  INFO 2372 --- [nio-8080-exec-5] com.example.filter.filter.GlobalFilter   : uri: /api/user, line:   "age": 27
+2022-05-24 15:04:33.779  INFO 2372 --- [nio-8080-exec-5] com.example.filter.filter.GlobalFilter   : uri: /api/user, line: }
+2022-05-24 15:04:33.781 ERROR 2372 --- [nio-8080-exec-5] o.a.c.c.C.[.[.[/].[dispatcherServlet]    : Servlet.service() for servlet [dispatcherServlet] in context with path [] threw exception [Request processing failed; nested exception is java.lang.IllegalStateException: getReader() has already been called for this request] with root cause
+
+java.lang.IllegalStateException: getReader() has already been called for this request
+	at org.apache.catalina.connector.Request.getInputStream(Request.java:1074) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.apache.catalina.connector.RequestFacade.getInputStream(RequestFacade.java:365) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.springframework.http.server.ServletServerHttpRequest.getBody(ServletServerHttpRequest.java:214) ~[spring-web-5.3.20.jar:5.3.20]
+	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1067) ~[spring-webmvc-5.3.20.jar:5.3.20]
+	at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:963) ~[spring-webmvc-5.3.20.jar:5.3.20]
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:681) ~[tomcat-embed-core-9.0.63.jar:4.0.FR]
+	at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:883) ~[spring-webmvc-5.3.20.jar:5.3.20]
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:764) ~[tomcat-embed-core-9.0.63.jar:4.0.FR]
+	at com.example.filter.filter.GlobalFilter.doFilter(GlobalFilter.java:26) ~[main/:na]
+....    
+```
+28:00
