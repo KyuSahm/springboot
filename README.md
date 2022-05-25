@@ -3365,7 +3365,7 @@ public class ErrorDetail {
 ## SpringBoot Filter와 Interceptor
 - Spring MVC Request Life Cycle
   - Request -> Filter -> DispatcherServlet -> Interceptor -> AOP -> Controller 순으로 호출
-![Spring_MVC_Request_Life_Cycle](./images/Spring_MVC_Request_Life_Cycle.png)
+![Spring_MVC_Request_Life_Cycle_Filter](./images/Spring_MVC_Request_Life_Cycle_Filter.png)
 ### Filter
 - Spring Framework에서 Client로부터 오는 요청/응답에 대해서 최초/최종 단계의 위치에 존재하는 영역
 - Spring에 의해서 데이터가 변환되기 전의 순수한 Client의 요청과 Spring의 최종 응답 값을 확인 가능
@@ -3640,6 +3640,7 @@ public class ApiTempController {
 2022-05-24 23:13:42.360  INFO 15188 --- [nio-8080-exec-6] c.e.filter.controller.ApiTempController  : temp() called
 ```
 ### Interceptor
+![Spring_MVC_Request_Life_Cycle_Interceptor](./images/Spring_MVC_Request_Life_Cycle_Interceptor.png)
 - Interceptor란 Filter와 매우 유사한 형태로 존재하지만, 차이점은 Spring Context에 등록됨
   - Spring과 관련된 기능들을 사용 가능
   - 이미 Controller Mapping까지 이루어졌기 때문에, 맵핑된 Method 정보도 가지고 있음
@@ -3647,5 +3648,38 @@ public class ApiTempController {
 - AOP와 유사한 기능을 제공할 수 있으며, 주로 **인증 단계**를 처리하거나, **Logging**를 하는 데에 사용한다.
   - 강사의 경우, Logging은 Filter에서 하고, 인증은 Interceptor에서 처리
 - 이를 선/후 처리함으로써, Service Business Logic와 분리시킴
+#### Interceptor 실습
+- Interceptor 구현
+  - ``org.springframework.web.servlet.HandlerInterceptor``을 구현한 Interceptor Class 정의
+    - ``preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)`` 재정의 가능
+      - Called after HandlerMapping determined an appropriate handler object, but before HandlerAdapter invokes the handler
+    - ``void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler,
+			@Nullable ModelAndView modelAndView)`` 재정의 가능
+      - Called after HandlerAdapter actually invoked the handler, but before the DispatcherServlet renders the view
 
-04:30
+    - ``void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler,
+			@Nullable Exception ex)`` 재정의 가능
+      - Callback after completion of request processing, that is, after rendering the view. Will be called on any outcome of handler execution, thus allows for proper resource cleanup
+- 일반적으로 Annotation을 정의해서 필요한 Method 또는 클래스에만 Intercetor을 적용
+```java
+package com.example.interceptor.annotation;
+....
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.TYPE, ElementType.METHOD})
+public @interface Auth {
+}
+
+package com.example.interceptor.controller;
+....
+@RestController
+@RequestMapping("/api/private")
+@Auth
+public class PrivateController {
+    @GetMapping("/hello")
+    public String hello() {
+        return "private hello";
+    }
+}
+```      
+15:00
