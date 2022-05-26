@@ -3660,7 +3660,63 @@ public class ApiTempController {
     - ``void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler,
 			@Nullable Exception ex)`` 재정의 가능
       - Callback after completion of request processing, that is, after rendering the view. Will be called on any outcome of handler execution, thus allows for proper resource cleanup
-- 일반적으로 Annotation을 정의해서 필요한 Method 또는 클래스에만 Intercetor을 적용
+  - Handler를 인자로 받아서 Annotation의 유무를 체크
+```java
+@Slf4j
+@Component
+public class AuthInterceptor implements HandlerInterceptor {
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        // 만약, Filter에서 아래와 같이 ContentCachingRequestWrapper를 생성해서 doFilter를 호출했다면, 입력인자 request를 ContentCachingRequestWrapper로 Casting 가능
+        // ContentCachingRequestWrapper contentCachingRequest = new ContentCachingRequestWrapper((HttpServletRequest)request);
+        // ContentCachingResponseWrapper contentCachingResponse = new ContentCachingResponseWrapper((HttpServletResponse)response);
+        // chain.doFilter(contentCachingRequest, contentCachingResponse);
+        // ---->
+        // ContentCachingRequestWrapper contentCachingRequest = (ContentCachingRequestWrapper)request;
+        String requestUri = request.getRequestURI();
+        log.info("request uri: {}", requestUri);
+        URI uri = UriComponentsBuilder.fromUriString(requestUri)
+                .query(request.getQueryString())
+                .build()
+                .toUri();
+
+        // Auth Annotation의 유무 체크
+        boolean hasAnnotation = checkAnnotation(handler, Auth.class);
+        log.info("hasAnnotation: {}", hasAnnotation);
+
+        if (hasAnnotation) {
+            String query = uri.getQuery();
+            if (query.equals("password=1234")) {
+                return true;
+            }
+
+            throw new AuthException("Password is invalid");
+            // 만약, false를 return하면, controller handler method 까지 도달하지 못하고 에러는 발생 안함
+            // return false;
+        } else {
+            return true;
+        }
+    }
+
+    private boolean checkAnnotation(Object handler, Class clazz) {
+        // Case 01: handler가 static resources(javascript, html, images 등)에 대한 요청이라면, 무조건 통과
+        if (handler instanceof ResourceHttpRequestHandler) {
+            return true;
+        }
+
+        // Case 02: handler가 일반적인 resources라면, annotation을 체크
+        HandlerMethod handlerMethod = (HandlerMethod)handler;
+        if (null != handlerMethod.getMethodAnnotation(clazz) || null != handlerMethod.getBeanType().getAnnotation(clazz)) {
+            // Auth annotation이 있을 때는 true
+            return true;
+        }
+
+        return false;
+    }
+}
+```        
+- 일반적으로 Annotation을 정의해서 필요한 Method 또는 클래스에만 Interceptor을 적용
+  - 클래스에 Interceptor을 적용하는 것이 사용하기가 쉬움
 ```java
 package com.example.interceptor.annotation;
 ....
@@ -3681,5 +3737,236 @@ public class PrivateController {
         return "private hello";
     }
 }
-```      
-15:00
+```
+- ``WebMvcConfigurer`` 구현 클래스
+  - 필요한 API에 Inteceptor를 등록할 수 있음
+```java
+@Configuration
+@RequiredArgsConstructor
+public class MvcConfig implements WebMvcConfigurer {
+    private final AuthInterceptor authInterceptor;
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        // Case 01. 모든 Client의 요청에 대해서 Interceptor을 동작시키고 싶을 때
+        //registry.addInterceptor(authInterceptor);
+        // Case 02. 특정 Client의 요청들에 대해서 Interceptor을 동작시키고 싶을 때. 
+        //          addPathPatterns로 필요한 API를 지정
+        registry.addInterceptor(authInterceptor).addPathPatterns("/api/private/*", "/api/public/*");
+        // 여러 개의 interceptor을 순서대로 등록 가능. 등록한 순서대로 우선 순위를 가짐
+        //registry.addInterceptor(xxxInterceptor).addPathPatterns("/api/text/*");
+    }
+}
+```
+- ``Interceptor``에서 Exception을 던지면, ``@ControllerAdvice, @RestControllerAdvice`` Exception handler에서 받아서 처리 가능
+```java
+@RestControllerAdvice
+@Slf4j
+public class GlobalExceptionHandler {
+    @ExceptionHandler(AuthException.class)
+    public ResponseEntity<String> processAuthException(AuthException e) {
+        log.error("error: {}", e);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
+    }
+}
+```
+- 전체 실습
+```java
+package com.example.interceptor;
+....
+@SpringBootApplication
+public class InterceptorApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(InterceptorApplication.class, args);
+	}
+
+}
+
+package com.example.interceptor.controller;
+....
+@RestController
+@RequestMapping("/api/private")
+@Auth
+@Slf4j
+public class PrivateController {
+    @GetMapping("/hello")
+    public String hello()
+    {
+        log.info("/api/private/hello method called");
+        return "private hello";
+    }
+}
+
+package com.example.interceptor.controller;
+....
+@RestController
+@RequestMapping("/api/public")
+@Slf4j
+public class PublicController {
+    @GetMapping("/hello")
+    public String hello()
+    {
+        log.info("/api/public/hello method called");
+        return "public hello";
+    }
+}
+
+package com.example.interceptor.annotation;
+....
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.TYPE, ElementType.METHOD})
+public @interface Auth {
+}
+
+package com.example.interceptor.config;
+....
+@Configuration
+@RequiredArgsConstructor
+public class MvcConfig implements WebMvcConfigurer {
+    private final AuthInterceptor authInterceptor;
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        // Case 01. 모든 Client의 요청에 대해서 Interceptor을 동작시키고 싶을 때
+        //registry.addInterceptor(authInterceptor);
+        // Case 02. 특정 Client의 요청들에 대해서 Interceptor을 동작시키고 싶을 때. 
+        //          addPathPatterns로 필요한 API를 지정
+        registry.addInterceptor(authInterceptor).addPathPatterns("/api/private/*", "/api/public/*");
+        // 여러 개의 interceptor을 순서대로 등록 가능. 등록한 순서대로 우선 순위를 가짐
+        //registry.addInterceptor(xxxInterceptor).addPathPatterns("/api/text/*");
+    }
+}
+
+package com.example.interceptor.interceptor;
+....
+@Slf4j
+@Component
+public class AuthInterceptor implements HandlerInterceptor {
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        // 만약, Filter에서 아래와 같이 ContentCachingRequestWrapper를 생성해서 doFilter를 호출했다면, 입력인자 request를 ContentCachingRequestWrapper로 Casting 가능
+        // ContentCachingRequestWrapper contentCachingRequest = new ContentCachingRequestWrapper((HttpServletRequest)request);
+        // ContentCachingResponseWrapper contentCachingResponse = new ContentCachingResponseWrapper((HttpServletResponse)response);
+        // chain.doFilter(contentCachingRequest, contentCachingResponse);
+        // ---->
+        // ContentCachingRequestWrapper contentCachingRequest = (ContentCachingRequestWrapper)request;
+        String requestUri = request.getRequestURI();
+        log.info("request uri: {}", requestUri);
+        URI uri = UriComponentsBuilder.fromUriString(requestUri)
+                .query(request.getQueryString())
+                .build()
+                .toUri();
+
+        // Auth Annotation의 유무 체크
+        boolean hasAnnotation = checkAnnotation(handler, Auth.class);
+        log.info("hasAnnotation: {}", hasAnnotation);
+
+        if (hasAnnotation) {
+            String query = uri.getQuery();
+            if (query.equals("password=1234")) {
+                return true;
+            }
+
+            throw new AuthException("Password is invalid");
+            // 만약, false를 return하면, controller handler method 까지 도달하지 못하고 에러는 발생 안함
+            // return false;
+        } else {
+            return true;
+        }
+    }
+
+    private boolean checkAnnotation(Object handler, Class clazz) {
+        // Case 01: handler가 static resources(javascript, html, images 등)에 대한 요청이라면, 무조건 통과
+        if (handler instanceof ResourceHttpRequestHandler) {
+            return true;
+        }
+
+        // Case 02: handler가 일반적인 resources라면, annotation을 체크
+        HandlerMethod handlerMethod = (HandlerMethod)handler;
+        if (null != handlerMethod.getMethodAnnotation(clazz) || null != handlerMethod.getBeanType().getAnnotation(clazz)) {
+            // Auth annotation이 있을 때는 true
+            return true;
+        }
+
+        return false;
+    }
+}
+
+package com.example.interceptor.exception;
+
+public class AuthException extends RuntimeException {
+    public AuthException(String message) {
+        super(message);
+    }
+}
+
+package com.example.interceptor.handler;
+....
+@RestControllerAdvice
+@Slf4j
+public class GlobalExceptionHandler {
+    @ExceptionHandler(AuthException.class)
+    public ResponseEntity<String> processAuthException(AuthException e) {
+        log.error("error: {}", e);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
+    }
+}
+```
+```bash
+2022-05-26 23:10:34.069  INFO 17252 --- [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 1 ms
+2022-05-26 23:10:34.088  INFO 17252 --- [nio-8080-exec-1] c.e.i.interceptor.AuthInterceptor        : request uri: /api/private/hello
+2022-05-26 23:10:34.096  INFO 17252 --- [nio-8080-exec-1] c.e.i.interceptor.AuthInterceptor        : hasAnnotation: true
+2022-05-26 23:10:34.105 ERROR 17252 --- [nio-8080-exec-1] c.e.i.handler.GlobalExceptionHandler     : error: {}
+
+com.example.interceptor.exception.AuthException: Password is invalid
+	at com.example.interceptor.interceptor.AuthInterceptor.preHandle(AuthInterceptor.java:44) ~[main/:na]
+	at org.springframework.web.servlet.HandlerExecutionChain.applyPreHandle(HandlerExecutionChain.java:148) ~[spring-webmvc-5.3.20.jar:5.3.20]
+	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1062) ~[spring-webmvc-5.3.20.jar:5.3.20]
+	at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:963) ~[spring-webmvc-5.3.20.jar:5.3.20]
+	at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1006) ~[spring-webmvc-5.3.20.jar:5.3.20]
+	at org.springframework.web.servlet.FrameworkServlet.doGet(FrameworkServlet.java:898) ~[spring-webmvc-5.3.20.jar:5.3.20]
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:655) ~[tomcat-embed-core-9.0.63.jar:4.0.FR]
+	at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:883) ~[spring-webmvc-5.3.20.jar:5.3.20]
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:764) ~[tomcat-embed-core-9.0.63.jar:4.0.FR]
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:227) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:162) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.apache.tomcat.websocket.server.WsFilter.doFilter(WsFilter.java:53) ~[tomcat-embed-websocket-9.0.63.jar:9.0.63]
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:189) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:162) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.springframework.web.filter.RequestContextFilter.doFilterInternal(RequestContextFilter.java:100) ~[spring-web-5.3.20.jar:5.3.20]
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:117) ~[spring-web-5.3.20.jar:5.3.20]
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:189) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:162) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.springframework.web.filter.FormContentFilter.doFilterInternal(FormContentFilter.java:93) ~[spring-web-5.3.20.jar:5.3.20]
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:117) ~[spring-web-5.3.20.jar:5.3.20]
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:189) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:162) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:201) ~[spring-web-5.3.20.jar:5.3.20]
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:117) ~[spring-web-5.3.20.jar:5.3.20]
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:189) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:162) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:197) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:97) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:541) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:135) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:92) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:78) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:360) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:399) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:65) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:890) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1743) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:49) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.apache.tomcat.util.threads.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1191) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.apache.tomcat.util.threads.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:659) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61) ~[tomcat-embed-core-9.0.63.jar:9.0.63]
+	at java.base/java.lang.Thread.run(Thread.java:834) ~[na:na]
+
+2022-05-26 23:10:45.096  INFO 17252 --- [nio-8080-exec-2] c.e.i.interceptor.AuthInterceptor        : request uri: /api/public/hello
+2022-05-26 23:10:45.096  INFO 17252 --- [nio-8080-exec-2] c.e.i.interceptor.AuthInterceptor        : hasAnnotation: false
+2022-05-26 23:10:45.101  INFO 17252 --- [nio-8080-exec-2] c.e.i.controller.PublicController        : /api/public/hello method called
+```
+![Interceptor_Private_Hello](./images/Interceptor_Private_Hello.png)
+![Interceptor_Public_Hello](./images/Interceptor_Public_Hello.png)

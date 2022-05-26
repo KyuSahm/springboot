@@ -1,13 +1,17 @@
 package com.example.interceptor.interceptor;
 
+import com.example.interceptor.annotation.Auth;
+import com.example.interceptor.exception.AuthException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.resource.ResourceHttpRequestHandler;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.net.URI;
 
 @Slf4j
 @Component
@@ -20,11 +24,29 @@ public class AuthInterceptor implements HandlerInterceptor {
         // chain.doFilter(contentCachingRequest, contentCachingResponse);
         // ---->
         // ContentCachingRequestWrapper contentCachingRequest = (ContentCachingRequestWrapper)request;
-        String uri = request.getRequestURI();
-        log.info("request uri: {}", uri);
-        
-        // 만약, false를 return하면, controller handler method 까지 도달하지 못함
-        return false;
+        String requestUri = request.getRequestURI();
+        log.info("request uri: {}", requestUri);
+        URI uri = UriComponentsBuilder.fromUriString(requestUri)
+                .query(request.getQueryString())
+                .build()
+                .toUri();
+
+        // Auth Annotation의 유무 체크
+        boolean hasAnnotation = checkAnnotation(handler, Auth.class);
+        log.info("hasAnnotation: {}", hasAnnotation);
+
+        if (hasAnnotation) {
+            String query = uri.getQuery();
+            if (query.equals("password=1234")) {
+                return true;
+            }
+
+            throw new AuthException("Password is invalid");
+            // 만약, false를 return하면, controller handler method 까지 도달하지 못하고 에러는 발생 안함
+            // return false;
+        } else {
+            return true;
+        }
     }
 
     private boolean checkAnnotation(Object handler, Class clazz) {
