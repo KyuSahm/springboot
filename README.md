@@ -3970,3 +3970,5 @@ com.example.interceptor.exception.AuthException: Password is invalid
 ```
 ![Interceptor_Private_Hello](./images/Interceptor_Private_Hello.png)
 ![Interceptor_Public_Hello](./images/Interceptor_Public_Hello.png)
+### 비동기 처리하기
+01:00
