@@ -3391,6 +3391,12 @@ public class ErrorDetail {
     - 컴파일 단계에서만 lombok를 사용 (실행시 필요 없음)
     - 컴파일 단계에서 hook에 의해 필요한 코드가 생성된 소스를 만들어 냄
 ```java
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+...
 dependencies {
     ....
 	compileOnly 'org.projectlombok:lombok'
@@ -3971,4 +3977,279 @@ com.example.interceptor.exception.AuthException: Password is invalid
 ![Interceptor_Private_Hello](./images/Interceptor_Private_Hello.png)
 ![Interceptor_Public_Hello](./images/Interceptor_Public_Hello.png)
 ### 비동기 처리하기
-01:00
+- ``Slf4j``의 Log Level 설정 방법
+  - Package별로 Level을 구성 가능
+  - https://docs.spring.io/spring-boot/docs/2.1.1.RELEASE/reference/html/boot-features-logging.html
+  - https://www.baeldung.com/spring-boot-logging
+
+```properties
+# 시스템 전체에 INFO Level을 적용하고, com.example.async Package 하위는 TRACE Level 적용
+logging.level.root=INFO
+logging.level.com.example.async=TRACE
+```
+#### Annotation의 이해
+- Step 01. 비동기로 동작시키기 위해서 ``@SpringBootApplication`` class에 ``@EnableAsync`` annotation을 추가
+- Step 02. 비동기로 동작시킬 메소드에 ``@Async`` annotation을 추가
+  - 해당 메소드는 별도의 쓰레드에서 비동기로 동작
+```java
+package com.example.async;
+....
+@SpringBootApplication
+@EnableAsync
+public class AsyncApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(AsyncApplication.class, args);
+	}
+
+}
+
+package com.example.async.controller;
+....
+@Slf4j
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api")
+public class ApiController {
+    private final AsyncService asyncService;
+
+    @GetMapping("/hello")
+    public String hello() {
+        asyncService.hello();
+        log.trace("return hello() method");
+        return "hello";
+    }
+}
+
+package com.example.async.service;
+....
+@Slf4j
+@Service
+public class AsyncService {
+    @Async
+    public void hello() {
+        try {
+            for (int i = 0; i < 10; i++) {
+                Thread.sleep(2000);
+                log.debug("Thread Sleep {}.......", i);
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+- 호출 결과
+```bash
+2022-06-01 13:45:45.450 TRACE 9932 --- [nio-8080-exec-1] c.e.async.controller.ApiController       : return hello() method
+2022-06-01 13:45:47.475 DEBUG 9932 --- [         task-1] com.example.async.service.AsyncService   : Thread Sleep 0.......
+2022-06-01 13:45:49.488 DEBUG 9932 --- [         task-1] com.example.async.service.AsyncService   : Thread Sleep 1.......
+2022-06-01 13:45:51.498 DEBUG 9932 --- [         task-1] com.example.async.service.AsyncService   : Thread Sleep 2.......
+2022-06-01 13:45:53.500 DEBUG 9932 --- [         task-1] com.example.async.service.AsyncService   : Thread Sleep 3.......
+2022-06-01 13:45:55.509 DEBUG 9932 --- [         task-1] com.example.async.service.AsyncService   : Thread Sleep 4.......
+2022-06-01 13:45:57.517 DEBUG 9932 --- [         task-1] com.example.async.service.AsyncService   : Thread Sleep 5.......
+2022-06-01 13:45:59.518 DEBUG 9932 --- [         task-1] com.example.async.service.AsyncService   : Thread Sleep 6.......
+2022-06-01 13:46:01.520 DEBUG 9932 --- [         task-1] com.example.async.service.AsyncService   : Thread Sleep 7.......
+2022-06-01 13:46:03.526 DEBUG 9932 --- [         task-1] com.example.async.service.AsyncService   : Thread Sleep 8.......
+2022-06-01 13:46:05.529 DEBUG 9932 --- [         task-1] com.example.async.service.AsyncService   : Thread Sleep 9.......
+```
+#### CompletableFuture를 통한 결과 기다리기
+- 비동기로 실행한 결과들을 CompletableFuture를 통해 동기화 시킬 수 있음
+- Step 01. 비동기로 동작시키기 위해서 ``@SpringBootApplication`` class에 ``@EnableAsync`` annotation을 추가
+- Step 02. 비동기로 동작시킬 메소드에 ``@Async`` annotation을 추가
+  - 해당 메소드는 별도의 쓰레드에서 비동기로 동작
+- Step 03. CompletableFuture를 객체를 사용 하기
+```java
+package com.example.async;
+....
+@SpringBootApplication
+@EnableAsync
+public class AsyncApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(AsyncApplication.class, args);
+	}
+
+}
+
+package com.example.async.controller;
+....
+@Slf4j
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api")
+public class ApiController {
+    private final AsyncService asyncService;
+
+    @GetMapping("/hello")
+    public String hello() {
+        CompletableFuture<String> completableFuture = asyncService.run();
+        log.trace("completableFuture returned");
+        String result = null;
+        try {
+            result = completableFuture.get();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        }
+        log.trace("result returned");
+        return result;
+    }
+}
+
+package com.example.async.service;
+....
+@Slf4j
+@Service
+public class AsyncService {
+    @Async
+    public CompletableFuture<String> run() {
+        log.trace("run() method called");
+        return new AsyncResult(hello()).completable();
+    }
+    public String hello() {
+        try {
+            for (int i = 0; i < 10; i++) {
+                Thread.sleep(2000);
+                log.debug("Thread Sleep {}.......", i);
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        return "async hello";
+    }
+}
+```
+- 호출 결과
+```bash
+....
+2022-06-01 17:42:49.305  INFO 21368 --- [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 0 ms
+2022-06-01 17:42:49.337 TRACE 21368 --- [nio-8080-exec-1] c.e.async.controller.ApiController       : completableFuture returned
+2022-06-01 17:42:49.350 TRACE 21368 --- [         task-1] com.example.async.service.AsyncService   : run() method called
+2022-06-01 17:42:51.366 DEBUG 21368 --- [         task-1] com.example.async.service.AsyncService   : Thread Sleep 0.......
+2022-06-01 17:42:53.370 DEBUG 21368 --- [         task-1] com.example.async.service.AsyncService   : Thread Sleep 1.......
+2022-06-01 17:42:55.377 DEBUG 21368 --- [         task-1] com.example.async.service.AsyncService   : Thread Sleep 2.......
+2022-06-01 17:42:57.382 DEBUG 21368 --- [         task-1] com.example.async.service.AsyncService   : Thread Sleep 3.......
+2022-06-01 17:42:59.393 DEBUG 21368 --- [         task-1] com.example.async.service.AsyncService   : Thread Sleep 4.......
+2022-06-01 17:43:01.402 DEBUG 21368 --- [         task-1] com.example.async.service.AsyncService   : Thread Sleep 5.......
+2022-06-01 17:43:03.403 DEBUG 21368 --- [         task-1] com.example.async.service.AsyncService   : Thread Sleep 6.......
+2022-06-01 17:43:05.414 DEBUG 21368 --- [         task-1] com.example.async.service.AsyncService   : Thread Sleep 7.......
+2022-06-01 17:43:07.424 DEBUG 21368 --- [         task-1] com.example.async.service.AsyncService   : Thread Sleep 8.......
+2022-06-01 17:43:09.437 DEBUG 21368 --- [         task-1] com.example.async.service.AsyncService   : Thread Sleep 9.......
+2022-06-01 17:43:09.438 TRACE 21368 --- [nio-8080-exec-1] c.e.async.controller.ApiController       : result returned
+```
+#### 사용자 ThreadPool을 통한 서비스의 실행
+- 사용자가 생성한 ThreadPool을 Bean으로 등록해서 비동기 메소드를 직접 실행 가능
+- Step 01. 사용자 ThreadPool 생성 및 Bean 등록
+```java
+@Configuration
+public class AppConfig {
+    @Bean("async-thread")
+    public Executor asyncThread() {
+        ThreadPoolTaskExecutor threadPoolTaskExecutor = new ThreadPoolTaskExecutor();
+        threadPoolTaskExecutor.setMaxPoolSize(100);
+        threadPoolTaskExecutor.setCorePoolSize(10);
+        threadPoolTaskExecutor.setQueueCapacity(10);
+        threadPoolTaskExecutor.setThreadNamePrefix("Async-");
+        return threadPoolTaskExecutor;
+    }
+}
+```
+- Step 02. 비동기로 동작시킬 메소드에 ``@Async`` annotation과 함께 ThreadPool Bean을 지정
+  - ``@Async("<bean name>")``
+```java
+@Slf4j
+@Service
+public class AsyncService {
+    @Async("async-thread")
+    public CompletableFuture<String> run() {
+        log.trace("run() method called");
+        return new AsyncResult(hello()).completable();
+    }
+    public String hello() {
+        .....
+        return "async hello";
+    }
+```
+- 소스 코드
+```java
+package com.example.async;
+....
+@SpringBootApplication
+@EnableAsync
+public class AsyncApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(AsyncApplication.class, args);
+	}
+
+}
+
+package com.example.async.controller;
+....
+@Slf4j
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api")
+public class ApiController {
+    private final AsyncService asyncService;
+
+    @GetMapping("/hello")
+    public String hello() {
+        CompletableFuture<String> completableFuture = asyncService.run();
+        log.trace("completableFuture returned");
+        String result = null;
+        try {
+            result = completableFuture.get();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        }
+        log.trace("result returned");
+        return result;
+    }
+}
+
+package com.example.async.service;
+....
+
+@Slf4j
+@Service
+public class AsyncService {
+    @Async("async-thread")
+    public CompletableFuture<String> run() {
+        log.trace("run() method called");
+        return new AsyncResult(hello()).completable();
+    }
+    public String hello() {
+        try {
+            for (int i = 0; i < 10; i++) {
+                Thread.sleep(2000);
+                log.debug("Thread Sleep {}.......", i);
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        return "async hello";
+    }
+}
+
+package com.example.async.config;
+....
+@Configuration
+public class AppConfig {
+    @Bean("async-thread")
+    public Executor asyncThread() {
+        ThreadPoolTaskExecutor threadPoolTaskExecutor = new ThreadPoolTaskExecutor();
+        threadPoolTaskExecutor.setMaxPoolSize(100);
+        threadPoolTaskExecutor.setCorePoolSize(10);
+        threadPoolTaskExecutor.setQueueCapacity(10);
+        threadPoolTaskExecutor.setThreadNamePrefix("Async-");
+        return threadPoolTaskExecutor;
+    }
+}
+```
