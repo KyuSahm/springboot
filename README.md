@@ -4253,3 +4253,196 @@ public class AppConfig {
     }
 }
 ```
+# Server to Server간의 연결
+## Server to Server 통신을 하는 방법
+- Backend Server가 Client 역할로 다른 Server에 연결하는 형태
+  - RestTemplate
+  - WebClient
+  - Apache Client
+  - ETC
+
+![ServerToServer](./images/ServerToServer.png)
+## RestTemplate
+### RestTemplate 실습 (1) - Get Method
+- client와 server project를 각각 생성
+#### RestTemplate Client
+- client project 구성
+  - client는 8080 port 사용
+  - Slf4j log level을 ``DEBUG`` 적용
+```properties
+# application.properties
+server.port=8080
+logging.level.com.example.client=DEBUG
+```
+- Server Rest API 호출
+  - ``T getForObject(URI url, Class<T> responseType)``
+    - Get Method and return type T on url
+```java
+public String hello() {
+    URI uri = UriComponentsBuilder
+            .fromUriString("http://localhost:9090")
+            .path("/api/server/hello")
+            .encode()
+            .build()
+            .toUri();
+    log.debug(uri.toString());
+
+    RestTemplate restTemplate = new RestTemplate();
+    // return String on Get Method with URI
+    String result = restTemplate.getForObject(uri, String.class);
+    return result;
+}
+```
+  - ``ResponseEntity<T> getForEntity(URI url, Class<T> responseType) ``
+    - Get Method and return ``ResponseEntity<T>`` on url
+```java
+public String hello() {
+    URI uri = UriComponentsBuilder
+            .fromUriString("http://localhost:9090")
+            .path("/api/server/hello")
+            .encode()
+            .build()
+            .toUri();
+    log.debug(uri.toString());
+
+    RestTemplate restTemplate = new RestTemplate();
+    ResponseEntity<String> responseEntity = restTemplate.getForEntity(uri, String.class);
+    log.debug("statusCode: {}, Body: {}", responseEntity.getStatusCode(), responseEntity.getBody());
+    return responseEntity.getBody();
+}
+```
+- UriComponentsBuilder을 이용해서 URI 정보를 설정
+  - Server IP
+  - Server Port
+  - URI Path
+  - Query Params
+```java
+public ResponseEntity<UserResponse> hello() {
+    URI uri = UriComponentsBuilder
+            .fromUriString("http://localhost:9090")
+            .path("/api/server/hello")
+            .queryParam("name", "steve")
+            .queryParam("age", 10)
+            .encode()
+            .build()
+            .toUri();
+    log.debug(uri.toString());
+    ....
+}
+```   
+- 전체 Client 코드
+```java
+package com.example.client;
+....
+@SpringBootApplication
+public class ClientApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(ClientApplication.class, args);
+	}
+
+}
+
+package com.example.client.controller;
+....
+@RestController
+@RequestMapping("/api/client")
+@RequiredArgsConstructor
+public class ApiController {
+    private final RestTemplateService restTemplateService;
+
+    @GetMapping("/hello")
+    public ResponseEntity<UserResponse> hello() {
+        return restTemplateService.hello();
+    }
+}
+
+package com.example.client.service;
+....
+@Slf4j
+@Service
+public class RestTemplateService {
+    public ResponseEntity<UserResponse> hello() {
+        URI uri = UriComponentsBuilder
+                .fromUriString("http://localhost:9090")
+                .path("/api/server/hello")
+                .queryParam("name", "steve")
+                .queryParam("age", 10)
+                .encode()
+                .build()
+                .toUri();
+        log.debug(uri.toString());
+
+        RestTemplate restTemplate = new RestTemplate();
+        // return String on Get Method with URI
+        //String result = restTemplate.getForObject(uri, String.class);
+        //return result;
+        //ResponseEntity<String> responseEntity = restTemplate.getForEntity(uri, String.class);
+        //log.debug("statusCode: {}, Body: {}", responseEntity.getStatusCode(), responseEntity.getBody());
+        //return responseEntity.getBody();
+        ResponseEntity<UserResponse> responseEntity = restTemplate.getForEntity(uri, UserResponse.class);
+        log.debug("statusCode: {}, Body: {}", responseEntity.getStatusCode(), responseEntity.getBody());
+        return responseEntity;
+    }
+}
+
+package com.example.client.dto;
+....
+@Data
+public class UserResponse {
+    private String name;
+    private int age;
+}
+```
+- Terminal Output
+```bash
+....
+2022-06-03 23:33:11.521 DEBUG 23872 --- [nio-8080-exec-2] c.e.client.service.RestTemplateService   : http://localhost:9090/api/server/hello?name=steve&age=10
+2022-06-03 23:33:11.528 DEBUG 23872 --- [nio-8080-exec-2] c.e.client.service.RestTemplateService   : statusCode: 200 OK, Body: UserResponse(name=steve, age=10)
+```
+#### RestTemplate Server
+- server project 구성
+  - client는 9090 port 사용
+  - Slf4j log level을 ``DEBUG`` 적용
+```properties
+# application.properties
+server.port=9090
+logging.level.com.example.server=DEBUG
+```
+- 전체 Server 코드
+```java
+package com.example.server;
+....
+@SpringBootApplication
+public class ServerApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(ServerApplication.class, args);
+	}
+
+}
+
+package com.example.server.controller;
+....
+@RestController
+@RequestMapping("/api/server")
+public class ServerApiController {
+//    @GetMapping("/hello")
+//    public String hello() {
+//        return "hello server";
+//    }
+    @GetMapping("/hello")
+    public ResponseEntity<User> hello(@RequestParam String name, @RequestParam int age) {
+        User user = new User(name, age);
+        return ResponseEntity.status(HttpStatus.OK).body(user);
+    }
+}
+
+package com.example.server.dto;
+....
+@Data
+public class User {
+    private final String name;
+    private final int age;
+}
+```
