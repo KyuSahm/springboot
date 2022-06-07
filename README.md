@@ -4389,6 +4389,8 @@ public class RestTemplateService {
 package com.example.client.dto;
 ....
 @Data
+@AllArgsConstructor
+@NoArgsConstructor
 public class UserResponse {
     private String name;
     private int age;
@@ -4441,8 +4443,162 @@ public class ServerApiController {
 package com.example.server.dto;
 ....
 @Data
+@AllArgsConstructor
 public class User {
-    private final String name;
-    private final int age;
+    private String name;
+    private int age;
 }
 ```
+### RestTemplate 실습 (2) - Post Method
+- client와 server project를 각각 생성
+#### RestTemplate Client
+- Path Variable을 사용하는 방법
+  - ``UriComponents`` 클래스의 ``expand()`` 메소드의 인자들에 해당 값들을 명시
+```java
+URI uri = UriComponentsBuilder
+            .fromUriString("http://localhost:9090")
+            .path("/api/server/user/{userId}/name/{userName}")
+            .encode()
+            .build()
+            .expand(100, "steve")
+            .toUri();
+log.debug(uri.toString());            
+```
+- Post Method를 사용하는 방법
+  - ``postForObject()`` 또는 ``postForEntity()`` 메소드를 이용
+```java
+UserRequest userRequest = new UserRequest("steve", 10);
+RestTemplate restTemplate = new RestTemplate();
+ResponseEntity<UserResponse> responseEntity = restTemplate.postForEntity(uri, userRequest, UserResponse.class);
+log.debug("statusCode: {}, Header: {}, Body: {}",
+        responseEntity.getStatusCode(), responseEntity.getHeaders(), responseEntity.getBody());
+```
+- RestTemplate이 http body를 보내는 방법
+  - RestTemplate에 내부에서 아래의 변환이 일어남
+  - 내부의 object mapper에 의해 object를 json string로 변환 후, http body에 문자열을 실어 보냄
+- 전체 Client 코드
+```java
+package com.example.client;
+....
+@SpringBootApplication
+public class ClientApplication {
+	public static void main(String[] args) {
+		SpringApplication.run(ClientApplication.class, args);
+	}
+}
+
+package com.example.client.controller;
+....
+@RestController
+@RequestMapping("/api/client")
+@RequiredArgsConstructor
+public class ApiController {
+    private final RestTemplateService restTemplateService;
+    @PostMapping("/user")
+    public ResponseEntity<UserResponse> user() {
+        return restTemplateService.user();
+    }
+}
+
+package com.example.client.service;
+....
+@Slf4j
+@Service
+public class RestTemplateService {
+    // Path Variables example
+    // http://localhost:9090/api/server/user/{userId}/name/{userName}
+    public ResponseEntity<UserResponse> user() {
+        URI uri = UriComponentsBuilder
+                .fromUriString("http://localhost:9090")
+                .path("/api/server/user/{userId}/name/{userName}")
+                .encode()
+                .build()
+                .expand(100, "steve")
+                .toUri();
+        log.debug(uri.toString());
+
+        // http body를 보내는 방법
+        // RestTemplate에 의해서 아래의 변환이 일어남
+        // object -> object mapper -> json string로 변환 후, http body의 json string에 넣어 줌
+        UserRequest userRequest = new UserRequest("steve", 10);
+        RestTemplate restTemplate = new RestTemplate();
+        ResponseEntity<UserResponse> responseEntity = restTemplate.postForEntity(uri, userRequest, UserResponse.class);
+        log.debug("statusCode: {}, Header: {}, Body: {}",
+                responseEntity.getStatusCode(), responseEntity.getHeaders(), responseEntity.getBody());
+        return responseEntity;
+    }
+}
+
+package com.example.client.dto;
+....
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class UserRequest {
+    private String name;
+    private int age;
+}
+
+package com.example.client.dto;
+....
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class UserResponse {
+    private String name;
+    private int age;
+}
+```
+- Client 실행 결과
+```bash
+...
+2022-06-07 23:25:16.433  INFO 23988 --- [nio-8080-exec-2] o.s.web.servlet.DispatcherServlet        : Completed initialization in 1 ms
+2022-06-07 23:25:16.472 DEBUG 23988 --- [nio-8080-exec-2] c.e.client.service.RestTemplateService   : http://localhost:9090/api/server/user/100/name/steve
+2022-06-07 23:25:16.574 DEBUG 23988 --- [nio-8080-exec-2] c.e.client.service.RestTemplateService   : statusCode: 200 OK, Header: [Content-Type:"application/json", Transfer-Encoding:"chunked", Date:"Tue, 07 Jun 2022 14:25:16 GMT", Keep-Alive:"timeout=60", Connection:"keep-alive"], Body: UserResponse(name=steve, age=10)
+
+```
+#### RestTemplate Server
+- 전체 Server 코드
+```java
+package com.example.server;
+....
+@SpringBootApplication
+public class ServerApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(ServerApplication.class, args);
+	}
+
+}
+
+package com.example.server.controller;
+....
+@Slf4j
+@RestController
+@RequestMapping("/api/server")
+public class ServerApiController {
+    @PostMapping("/user/{userId}/name/{userName}")
+    public ResponseEntity<User> post(@RequestBody User user, @PathVariable int userId, @PathVariable String userName) {
+        log.debug("Path Variables userId: {}, userName: {}", userId, userName);
+        log.debug("Request Body: {}", user);
+        User newUser = new User(user.getName(), user.getAge());
+        return ResponseEntity.ok().body(newUser);
+    }
+}
+
+package com.example.server.dto;
+....
+@Data
+@AllArgsConstructor
+public class User {
+    private String name;
+    private int age;
+}
+```
+- Server 실행 결과
+```bash
+....
+2022-06-07 23:25:16.561 DEBUG 29176 --- [nio-9090-exec-1] c.e.s.controller.ServerApiController     : Path Variables userId: 100, userName: steve
+2022-06-07 23:25:16.561 DEBUG 29176 --- [nio-9090-exec-1] c.e.s.controller.ServerApiController     : Request Body: User(name=steve, age=10)
+```
+### RestTemplate 실습 (3) - Header를 추가하는 방법

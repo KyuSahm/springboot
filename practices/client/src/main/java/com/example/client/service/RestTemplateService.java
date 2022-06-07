@@ -1,5 +1,6 @@
 package com.example.client.service;
 
+import com.example.client.dto.UserRequest;
 import com.example.client.dto.UserResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -13,7 +14,7 @@ import java.net.URI;
 @Service
 public class RestTemplateService {
 
-    // http://localhost/api/server/hello
+    // http://localhost:9090/api/server/hello
     // response
     public ResponseEntity<UserResponse> hello() {
         URI uri = UriComponentsBuilder
@@ -35,6 +36,29 @@ public class RestTemplateService {
         //return responseEntity.getBody();
         ResponseEntity<UserResponse> responseEntity = restTemplate.getForEntity(uri, UserResponse.class);
         log.debug("statusCode: {}, Body: {}", responseEntity.getStatusCode(), responseEntity.getBody());
+        return responseEntity;
+    }
+
+    // Path Variables example
+    // http://localhost:9090/api/server/user/{userId}/name/{userName}
+    public ResponseEntity<UserResponse> user() {
+        URI uri = UriComponentsBuilder
+                .fromUriString("http://localhost:9090")
+                .path("/api/server/user/{userId}/name/{userName}")
+                .encode()
+                .build()
+                .expand(100, "steve")
+                .toUri();
+        log.debug(uri.toString());
+
+        // http body를 보내는 방법
+        // RestTemplate에 의해서 아래의 변환이 일어남
+        // object -> object mapper -> json string로 변환 후, http body의 json string에 넣어 줌
+        UserRequest userRequest = new UserRequest("steve", 10);
+        RestTemplate restTemplate = new RestTemplate();
+        ResponseEntity<UserResponse> responseEntity = restTemplate.postForEntity(uri, userRequest, UserResponse.class);
+        log.debug("statusCode: {}, Header: {}, Body: {}",
+                responseEntity.getStatusCode(), responseEntity.getHeaders(), responseEntity.getBody());
         return responseEntity;
     }
 }

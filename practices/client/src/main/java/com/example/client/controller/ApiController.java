@@ -5,6 +5,7 @@ import com.example.client.service.RestTemplateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -17,5 +18,10 @@ public class ApiController {
     @GetMapping("/hello")
     public ResponseEntity<UserResponse> hello() {
         return restTemplateService.hello();
+    }
+
+    @PostMapping("/user")
+    public ResponseEntity<UserResponse> user() {
+        return restTemplateService.user();
     }
 }
