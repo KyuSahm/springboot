@@ -4602,3 +4602,185 @@ public class User {
 2022-06-07 23:25:16.561 DEBUG 29176 --- [nio-9090-exec-1] c.e.s.controller.ServerApiController     : Request Body: User(name=steve, age=10)
 ```
 ### RestTemplate 실습 (3) - Header를 추가하는 방법
+#### RestTemplate Client
+- ``RequestEntity<T>`` 객체를 생성해서 ``RestTemplate``의 ``exchange()`` 메소드를 호출
+```java
+UserRequest userRequest = new UserRequest("steve", 10);
+RequestEntity<UserRequest> requestEntity = RequestEntity
+        .post(uri)
+        .contentType(MediaType.APPLICATION_JSON)
+        .header("x-authorization", "abcd")
+        .header("custom-header", "ffffff")
+        .body(userRequest);
+
+RestTemplate restTemplate = new RestTemplate();
+ResponseEntity<UserResponse> responseEntity = restTemplate.exchange(requestEntity, UserResponse.class);
+log.debug("statusCode: {}, Header: {}, Body: {}",
+        responseEntity.getStatusCode(), responseEntity.getHeaders(), responseEntity.getBody());
+```
+- 전체 Client 코드
+```java
+package com.example.client;
+....
+@SpringBootApplication
+public class ClientApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(ClientApplication.class, args);
+	}
+
+}
+
+package com.example.client.controller;
+....
+@RestController
+@RequestMapping("/api/client")
+@RequiredArgsConstructor
+public class ApiController {
+    private final RestTemplateService restTemplateService;
+    @PostMapping("/exchange")
+    public ResponseEntity<UserResponse> exchange() {
+        return restTemplateService.exchange();
+    }
+}
+
+package com.example.client.service;
+....
+@Slf4j
+@Service
+public class RestTemplateService {
+    public ResponseEntity<UserResponse> exchange() {
+        URI uri = UriComponentsBuilder
+                .fromUriString("http://localhost:9090")
+                .path("/api/server/user/name/{userName}")
+                .encode()
+                .build()
+                .expand("steve")
+                .toUri();
+        log.debug(uri.toString());
+
+        // http body를 보내는 방법
+        // RestTemplate에 의해서 아래의 변환이 일어남
+        // object -> object mapper -> json string로 변환 후, http body의 json string에 넣어 줌
+        UserRequest userRequest = new UserRequest("steve", 10);
+        RequestEntity<UserRequest> requestEntity = RequestEntity
+                .post(uri)
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("x-authorization", "abcd")
+                .header("custom-header", "ffffff")
+                .body(userRequest);
+
+        RestTemplate restTemplate = new RestTemplate();
+        ResponseEntity<UserResponse> responseEntity = restTemplate.exchange(requestEntity, UserResponse.class);
+        log.debug("statusCode: {}, Header: {}, Body: {}",
+                responseEntity.getStatusCode(), responseEntity.getHeaders(), responseEntity.getBody());
+        return responseEntity;
+    }
+}
+
+package com.example.client.dto;
+....
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class UserRequest {
+    private String name;
+    private int age;
+}
+
+package com.example.client.dto;
+....
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class UserResponse {
+    private String name;
+    private int age;
+}
+```
+- Client 실행 결과
+```bash
+...
+2022-06-09 22:54:05.031  INFO 18376 --- [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 2 ms
+2022-06-09 22:54:05.061 DEBUG 18376 --- [nio-8080-exec-1] c.e.client.service.RestTemplateService   : http://localhost:9090/api/server/user/name/steve
+2022-06-09 22:54:05.171 DEBUG 18376 --- [nio-8080-exec-1] c.e.client.service.RestTemplateService   : statusCode: 200 OK, Header: [Content-Type:"application/json", Transfer-Encoding:"chunked", Date:"Thu, 09 Jun 2022 13:54:05 GMT", Keep-Alive:"timeout=60", Connection:"keep-alive"], Body: UserResponse(name=steve, age=10)
+```
+#### RestTemplate Server
+- ``Controller`` method의 인자에 ``@RequestHeader``를 이용하여 Header 값들을 추출할 수 있음
+```java
+@PostMapping("/user/name/{userName}")
+public ResponseEntity<User> postWithHeader(@RequestBody User user,
+                                            @PathVariable String userName,
+                                            @RequestHeader("x-authorization") String authorization,
+                                            @RequestHeader("custom-header") String customHeader) {
+    log.debug("Path Variables userName: {}", userName);
+    log.debug("Request Body: {}", user);
+    log.debug("Request Header: x-authorization: {}, custom-header: {}", authorization, customHeader);
+    User newUser = new User(user.getName(), user.getAge());
+    return ResponseEntity.ok().body(newUser);
+}
+```
+- 전체 서버 코드
+```java
+package com.example.server;
+....
+@SpringBootApplication
+public class ServerApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(ServerApplication.class, args);
+	}
+
+}
+
+package com.example.server.controller;
+....
+@Slf4j
+@RestController
+@RequestMapping("/api/server")
+public class ServerApiController {
+....
+    @PostMapping("/user/name/{userName}")
+    public ResponseEntity<User> postWithHeader(@RequestBody User user,
+                                               @PathVariable String userName,
+                                               @RequestHeader("x-authorization") String authorization,
+                                               @RequestHeader("custom-header") String customHeader) {
+        log.debug("Path Variables userName: {}", userName);
+        log.debug("Request Body: {}", user);
+        log.debug("Request Header: x-authorization: {}, custom-header: {}", authorization, customHeader);
+        User newUser = new User(user.getName(), user.getAge());
+        return ResponseEntity.ok().body(newUser);
+    }
+}
+
+package com.example.server.dto;
+....
+@Data
+@AllArgsConstructor
+public class User {
+    private String name;
+    private int age;
+}
+```
+- Server 실행 결과
+```bash
+....
+2022-06-09 22:54:05.158 DEBUG 12336 --- [nio-9090-exec-4] c.e.s.controller.ServerApiController     : Path Variables userName: steve
+2022-06-09 22:54:05.158 DEBUG 12336 --- [nio-9090-exec-4] c.e.s.controller.ServerApiController     : Request Body: User(name=steve, age=10)
+2022-06-09 22:54:05.158 DEBUG 12336 --- [nio-9090-exec-4] c.e.s.controller.ServerApiController     : Request Header: x-authorization: abcd, custom-header: ffffff
+```
+### RestTemplate 실습 (4) - 사용자 정의 Body Template를 사용하는 방법
+- 아래와 같은 형식으로 Response Body를 내려 받고 싶은 경우
+```json
+{
+    "header": {
+        "response_code": "OK"
+    },
+    "body": {
+        "book": "spring boot",
+        "page": 1024
+    }
+}
+```
+#### RestTemplate Client
+08:00

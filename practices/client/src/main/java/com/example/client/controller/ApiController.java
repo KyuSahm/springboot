@@ -24,4 +24,9 @@ public class ApiController {
     public ResponseEntity<UserResponse> user() {
         return restTemplateService.user();
     }
+
+    @PostMapping("/exchange")
+    public ResponseEntity<UserResponse> exchange() {
+        return restTemplateService.exchange();
+    }
 }

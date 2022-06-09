@@ -3,6 +3,8 @@ package com.example.client.service;
 import com.example.client.dto.UserRequest;
 import com.example.client.dto.UserResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
+import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -57,6 +59,34 @@ public class RestTemplateService {
         UserRequest userRequest = new UserRequest("steve", 10);
         RestTemplate restTemplate = new RestTemplate();
         ResponseEntity<UserResponse> responseEntity = restTemplate.postForEntity(uri, userRequest, UserResponse.class);
+        log.debug("statusCode: {}, Header: {}, Body: {}",
+                responseEntity.getStatusCode(), responseEntity.getHeaders(), responseEntity.getBody());
+        return responseEntity;
+    }
+
+    public ResponseEntity<UserResponse> exchange() {
+        URI uri = UriComponentsBuilder
+                .fromUriString("http://localhost:9090")
+                .path("/api/server/user/name/{userName}")
+                .encode()
+                .build()
+                .expand("steve")
+                .toUri();
+        log.debug(uri.toString());
+
+        // http body를 보내는 방법
+        // RestTemplate에 의해서 아래의 변환이 일어남
+        // object -> object mapper -> json string로 변환 후, http body의 json string에 넣어 줌
+        UserRequest userRequest = new UserRequest("steve", 10);
+        RequestEntity<UserRequest> requestEntity = RequestEntity
+                .post(uri)
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("x-authorization", "abcd")
+                .header("custom-header", "ffffff")
+                .body(userRequest);
+
+        RestTemplate restTemplate = new RestTemplate();
+        ResponseEntity<UserResponse> responseEntity = restTemplate.exchange(requestEntity, UserResponse.class);
         log.debug("statusCode: {}, Header: {}, Body: {}",
                 responseEntity.getStatusCode(), responseEntity.getHeaders(), responseEntity.getBody());
         return responseEntity;

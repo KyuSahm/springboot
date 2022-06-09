@@ -28,4 +28,16 @@ public class ServerApiController {
         User newUser = new User(user.getName(), user.getAge());
         return ResponseEntity.ok().body(newUser);
     }
+
+    @PostMapping("/user/name/{userName}")
+    public ResponseEntity<User> postWithHeader(@RequestBody User user,
+                                               @PathVariable String userName,
+                                               @RequestHeader("x-authorization") String authorization,
+                                               @RequestHeader("custom-header") String customHeader) {
+        log.debug("Path Variables userName: {}", userName);
+        log.debug("Request Body: {}", user);
+        log.debug("Request Header: x-authorization: {}, custom-header: {}", authorization, customHeader);
+        User newUser = new User(user.getName(), user.getAge());
+        return ResponseEntity.ok().body(newUser);
+    }
 }
