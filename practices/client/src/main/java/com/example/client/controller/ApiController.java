@@ -1,5 +1,6 @@
 package com.example.client.controller;
 
+import com.example.client.dto.Req;
 import com.example.client.dto.UserResponse;
 import com.example.client.service.RestTemplateService;
 import lombok.RequiredArgsConstructor;
@@ -28,5 +29,10 @@ public class ApiController {
     @PostMapping("/exchange")
     public ResponseEntity<UserResponse> exchange() {
         return restTemplateService.exchange();
+    }
+
+    @PostMapping("/exchangeOnTemplate")
+    public ResponseEntity<Req<UserResponse>> exchangeOnTemplate() {
+        return restTemplateService.exchangeOnTemplate();
     }
 }

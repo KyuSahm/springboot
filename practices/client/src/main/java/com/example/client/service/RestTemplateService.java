@@ -1,8 +1,10 @@
 package com.example.client.service;
 
+import com.example.client.dto.Req;
 import com.example.client.dto.UserRequest;
 import com.example.client.dto.UserResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
@@ -90,5 +92,42 @@ public class RestTemplateService {
         log.debug("statusCode: {}, Header: {}, Body: {}",
                 responseEntity.getStatusCode(), responseEntity.getHeaders(), responseEntity.getBody());
         return responseEntity;
+    }
+
+    public ResponseEntity<Req<UserResponse>> exchangeOnTemplate() {
+        URI uri = UriComponentsBuilder
+                .fromUriString("http://localhost:9090")
+                .path("/api/server/template/user/name/{userName}")
+                .encode()
+                .build()
+                .expand("steve")
+                .toUri();
+        log.debug(uri.toString());
+
+        UserRequest userRequest = new UserRequest("steve", 10);
+
+        Req<UserRequest> req = new Req<>();
+        req.setHeader(new Req.Header());
+        req.setBody(userRequest);
+
+        // http body를 보내는 방법
+        // RestTemplate에 의해서 아래의 변환이 일어남
+        // object -> object mapper -> json string로 변환 후, http body의 json string에 넣어 줌
+        RequestEntity<Req<UserRequest>> requestEntity = RequestEntity
+                .post(uri)
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("x-authorization", "abcd")
+                .header("custom-header", "ffffff")
+                .body(req);
+
+        RestTemplate restTemplate = new RestTemplate();
+        // Generic에 .class를 사용할 수 없음. 
+        // ResponseEntity<Req<UserResponse>> response = restTemplate.exchange(requestEntity, Req<UserResponse>.class)
+        // ParameterizedTypeReference의 익명 객체를 생성해서 넘겨주면 됨
+        ResponseEntity<Req<UserResponse>> response = restTemplate.exchange(requestEntity,
+                new ParameterizedTypeReference<Req<UserResponse>>(){});
+
+        //return response.getBody();
+        return response;
     }
 }

@@ -4770,7 +4770,7 @@ public class User {
 2022-06-09 22:54:05.158 DEBUG 12336 --- [nio-9090-exec-4] c.e.s.controller.ServerApiController     : Request Header: x-authorization: abcd, custom-header: ffffff
 ```
 ### RestTemplate 실습 (4) - 사용자 정의 Body Template를 사용하는 방법
-- 아래와 같은 형식으로 Response Body를 내려 받고 싶은 경우
+- 아래와 같이 header는 고정하고, body의 경우 동적으로 개발자가 설정하고 싶은 경우
 ```json
 {
     "header": {
@@ -4782,5 +4782,241 @@ public class User {
     }
 }
 ```
+- DTO를 정의할 때, 아래와 같이 body 부분을 ``Generic``를 사용
+  - Front와 Interface를 고정해서 사용할 수 있기 때문에 유용함
+```java
+package com.example.server.dto;
+....
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class Req<T> {
+    private Header header;
+    private T body;
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class Header {
+        private String responseCode;
+    }
+}
+```  
+- Controller의 입력 부분을 디버깅하는 방법
+  - 해당 controller API의 마지막 인자에 HTTPEntity 인자를 넣어서 찍어보면 됨
+```java
+@PostMapping("/template/user/name/{userName}")
+public ResponseEntity<Req<User>> postOnTemplate(
+        @RequestBody Req<User> req,
+        @PathVariable String userName,
+        @RequestHeader("x-authorization") String authorization,
+        @RequestHeader("custom-header") String customHeader,
+        HttpEntity<String> entity) {
+    log.debug("HttpEntity: {}", entity);
+    ....
+}
+```
+```bash
+2022-06-18 12:08:04.218 DEBUG 5828 --- [nio-9090-exec-1] c.e.s.controller.ServerApiController     : HttpEntity: <[accept:"application/json, application/*+json", x-authorization:"abcd", custom-header:"ffffff", user-agent:"Java/11.0.11", host:"localhost:9090", connection:"keep-alive", content-length:"65", Content-Type:"application/json;charset=UTF-8"]>
+```
 #### RestTemplate Client
-08:00
+```java
+package com.example.client;
+....
+@SpringBootApplication
+public class ClientApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(ClientApplication.class, args);
+	}
+
+}
+
+package com.example.client.controller;
+....
+@RestController
+@RequestMapping("/api/client")
+@RequiredArgsConstructor
+public class ApiController {
+    private final RestTemplateService restTemplateService;
+    
+    @PostMapping("/exchangeOnTemplate")
+    public ResponseEntity<Req<UserResponse>> exchangeOnTemplate() {
+        return restTemplateService.exchangeOnTemplate();
+    }
+}
+
+package com.example.client.service;
+....
+@Slf4j
+@Service
+public class RestTemplateService {
+    public ResponseEntity<Req<UserResponse>> exchangeOnTemplate() {
+        URI uri = UriComponentsBuilder
+                .fromUriString("http://localhost:9090")
+                .path("/api/server/template/user/name/{userName}")
+                .encode()
+                .build()
+                .expand("steve")
+                .toUri();
+        log.debug(uri.toString());
+
+        UserRequest userRequest = new UserRequest("steve", 10);
+        Req<UserRequest> req = new Req<>();
+        req.setHeader(new Req.Header());
+        req.setBody(userRequest);
+
+        // http body를 보내는 방법
+        // RestTemplate에 의해서 아래의 변환이 일어남
+        // object -> object mapper -> json string로 변환 후, http body의 json string에 넣어 줌
+        RequestEntity<Req<UserRequest>> requestEntity = RequestEntity
+                .post(uri)
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("x-authorization", "abcd")
+                .header("custom-header", "ffffff")
+                .body(req);
+
+        RestTemplate restTemplate = new RestTemplate();
+        // Generic에 .class를 사용할 수 없음. 
+        // ResponseEntity<Req<UserResponse>> response = restTemplate.exchange(requestEntity, Req<UserResponse>.class)
+        // ParameterizedTypeReference의 익명 객체를 생성해서 넘겨주면 됨
+        ResponseEntity<Req<UserResponse>> response = restTemplate.exchange(requestEntity,
+                new ParameterizedTypeReference<Req<UserResponse>>(){});
+
+        //return response.getBody();
+        return response;
+    }
+}
+
+package com.example.client.dto;
+
+public class Req<T> {
+    private Header header;
+    private T body;
+    public static class Header {
+        private String responseCode;
+
+        public String getResponseCode() {
+            return responseCode;
+        }
+
+        public void setResponseCode(String responseCode) {
+            this.responseCode = responseCode;
+        }
+
+        @Override
+        public String toString() {
+            return "Header{" +
+                    "responseCode='" + responseCode + '\'' +
+                    '}';
+        }
+    }
+
+    public Header getHeader() {
+        return header;
+    }
+
+    public void setHeader(Header header) {
+        this.header = header;
+    }
+
+    public T getBody() {
+        return body;
+    }
+
+    public void setBody(T body) {
+        this.body = body;
+    }
+
+    @Override
+    public String toString() {
+        return "Req{" +
+                "header=" + header +
+                ", body=" + body +
+                '}';
+    }
+}
+
+package com.example.client.dto;
+....
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class UserRequest {
+    private String name;
+    private int age;
+}
+
+package com.example.client.dto;
+....
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class UserResponse {
+    private String name;
+    private int age;
+}
+
+```
+#### RestTemplate Server
+```java
+package com.example.server;
+....
+@SpringBootApplication
+public class ServerApplication {
+	public static void main(String[] args) {
+		SpringApplication.run(ServerApplication.class, args);
+	}
+}
+
+package com.example.server.controller;
+....
+@Slf4j
+@RestController
+@RequestMapping("/api/server")
+public class ServerApiController {
+    @PostMapping("/template/user/name/{userName}")
+    public ResponseEntity<Req<User>> postOnTemplate(
+            @RequestBody Req<User> req,
+            @PathVariable String userName,
+            @RequestHeader("x-authorization") String authorization,
+            @RequestHeader("custom-header") String customHeader,
+            HttpEntity<String> entity) {
+        log.debug("HttpEntity: {}", entity);
+        log.debug("Path Variables userName: {}", userName);
+        log.debug("Request Body: {}", req);
+        log.debug("Request Header: x-authorization: {}, custom-header: {}", authorization, customHeader);
+        User newUser = new User(req.getBody().getName(), req.getBody().getAge());
+        Req<User> newReq = new Req<>();
+        newReq.setHeader(new Req.Header("200"));
+        newReq.setBody(newUser);
+        return ResponseEntity.ok().body(newReq);
+    }
+}
+
+package com.example.server.dto;
+....
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class Req<T> {
+    private Header header;
+    private T body;
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class Header {
+        private String responseCode;
+    }
+}
+
+package com.example.server.dto;
+....
+@Data
+@AllArgsConstructor
+public class User {
+    private String name;
+    private int age;
+}
+```

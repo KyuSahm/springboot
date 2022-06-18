@@ -1,7 +1,9 @@
 package com.example.server.controller;
 
+import com.example.server.dto.Req;
 import com.example.server.dto.User;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -39,5 +41,23 @@ public class ServerApiController {
         log.debug("Request Header: x-authorization: {}, custom-header: {}", authorization, customHeader);
         User newUser = new User(user.getName(), user.getAge());
         return ResponseEntity.ok().body(newUser);
+    }
+
+    @PostMapping("/template/user/name/{userName}")
+    public ResponseEntity<Req<User>> postOnTemplate(
+            @RequestBody Req<User> req,
+            @PathVariable String userName,
+            @RequestHeader("x-authorization") String authorization,
+            @RequestHeader("custom-header") String customHeader,
+            HttpEntity<String> entity) {
+        log.debug("HttpEntity: {}", entity);
+        log.debug("Path Variables userName: {}", userName);
+        log.debug("Request Body: {}", req);
+        log.debug("Request Header: x-authorization: {}, custom-header: {}", authorization, customHeader);
+        User newUser = new User(req.getBody().getName(), req.getBody().getAge());
+        Req<User> newReq = new Req<>();
+        newReq.setHeader(new Req.Header("200"));
+        newReq.setBody(newUser);
+        return ResponseEntity.ok().body(newReq);
     }
 }
