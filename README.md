@@ -5020,3 +5020,20 @@ public class User {
     private int age;
 }
 ```
+## Naver 지역 검색 API 연동해 보기
+- Naver OpenAPI 연동해 보기
+  - Google에서 ``Naver OpenAPI``로 검색
+  - https://developers.naver.com/docs/common/openapiguide/
+- Naver 지역 검색 서비스 이용해 보기
+  - https://developers.naver.com/docs/serviceapi/search/local/local.md#%EC%A7%80%EC%97%AD
+  - 화면에서 ``오픈 API 이용 신청`` 버튼 클릭
+![naver_open_api_register](./images/naver_open_api_register.png)
+  - ClientID와 Client Secret를 발급 받음
+![naver_open_api_client_info](./images/naver_open_api_client_info.png)
+  - API 호출 방법
+![naver_open_api_region_1](./images/naver_open_api_region_1.png)
+![naver_open_api_region_2](./images/naver_open_api_region_2.png)
+![naver_open_api_region_3](./images/naver_open_api_region_3.png)
+  - Talend API Tester를 이용한 테스트
+![naver_open_api_region_Test](./images/naver_open_api_region_Test.png)
+11:59  
