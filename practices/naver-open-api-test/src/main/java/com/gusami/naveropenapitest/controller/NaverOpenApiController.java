@@ -16,7 +16,7 @@ public class NaverOpenApiController {
     private final NaverOpenAPIService naverOpenAPIService;
 
     @GetMapping("/naver/search")
-    public ResponseEntity searchOnNaver(@RequestParam String keyword) {
+    public ResponseEntity<NaverRegionResponse> searchOnNaver(@RequestParam String keyword) {
         return naverOpenAPIService.searchOnNaver(keyword);
     }
 }

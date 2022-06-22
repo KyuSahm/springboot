@@ -19,7 +19,7 @@ public class NaverOpenAPIService {
     // &display=5
     // &start=1
     // &sort=random
-    public ResponseEntity searchOnNaver(String keyword) {
+    public ResponseEntity<NaverRegionResponse> searchOnNaver(String keyword) {
         URI uri = UriComponentsBuilder
                 .fromUriString("https://openapi.naver.com")
                 .path("/v1/search/local.json")
@@ -31,13 +31,15 @@ public class NaverOpenAPIService {
                 .build()
                 .toUri();
         RestTemplate restTemplate = new RestTemplate();
+        // Header를 넣기 위해 RequestEntity를 사용
+        // Get Method는 전달할 body가 없으므로, Void 형태의 Generic를 사용
         RequestEntity<Void> requestEntity = RequestEntity
                 .get(uri)
                 .header("X-Naver-Client-Id", NaverClientId)
                 .header("X-Naver-Client-Secret", NaverClientSecret)
                 .build();
 
-        ResponseEntity<NaverRegionResponse[]> responseEntity = restTemplate.exchange(requestEntity, NaverRegionResponse[].class);
-        return responseEntity;
+        ResponseEntity<NaverRegionResponse> responseEntity = restTemplate.exchange(requestEntity, NaverRegionResponse.class);
+        return ResponseEntity.ok().body(responseEntity.getBody());
     }
 }

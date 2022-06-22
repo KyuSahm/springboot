@@ -5036,4 +5036,99 @@ public class User {
 ![naver_open_api_region_3](./images/naver_open_api_region_3.png)
   - Talend API Tester를 이용한 테스트
 ![naver_open_api_region_Test](./images/naver_open_api_region_Test.png)
-11:59  
+11:59
+- Naver 지역 검색 결과값을 담기 위한 DTO Class 정의
+  -  ``NaverRegionResponse`` class
+- Client Id와 Client Secret를 Header 값을 전달
+  - ``X-Naver-Client-Id``
+  - ``X-Naver-Client-Secret``
+  - ``RequestEntity``를 이용해서 Header 값을 전달
+- 전체 서버 코드  
+```java
+package com.gusami.naveropenapitest;
+....
+@SpringBootApplication
+public class NaverOpenApiTestApplication {
+	public static void main(String[] args) {
+		SpringApplication.run(NaverOpenApiTestApplication.class, args);
+	}
+}
+
+package com.gusami.naveropenapitest.controller;
+....
+@RestController
+@RequestMapping("/api")
+@RequiredArgsConstructor
+public class NaverOpenApiController {
+    private final NaverOpenAPIService naverOpenAPIService;
+
+    @GetMapping("/naver/search")
+    public ResponseEntity<NaverRegionResponse> searchOnNaver(@RequestParam String keyword) {
+        return naverOpenAPIService.searchOnNaver(keyword);
+    }
+}
+
+package com.gusami.naveropenapitest.service;
+....
+@Service
+public class NaverOpenAPIService {
+    private static final String NaverClientId = "iRxZPRYmUEx5TIjkpF7O";
+    private static final String NaverClientSecret = "AhMSrnHEwE";
+
+    // https://openapi.naver.com/v1/search/local.json
+    // ?query=%EC%9C%A8%EB%8F%99%EA%B3%B5%EC%9B%90
+    // &display=5
+    // &start=1
+    // &sort=random
+    public ResponseEntity<NaverRegionResponse> searchOnNaver(String keyword) {
+        URI uri = UriComponentsBuilder
+                .fromUriString("https://openapi.naver.com")
+                .path("/v1/search/local.json")
+                .queryParam("query", keyword)
+                .queryParam("display", 5)
+                .queryParam("start", 1)
+                .queryParam("sort", "random")
+                .encode()
+                .build()
+                .toUri();
+        RestTemplate restTemplate = new RestTemplate();
+        // Header를 넣기 위해 RequestEntity를 사용
+        // Get Method는 전달할 body가 없으므로, Void 형태의 Generic를 사용
+        RequestEntity<Void> requestEntity = RequestEntity
+                .get(uri)
+                .header("X-Naver-Client-Id", NaverClientId)
+                .header("X-Naver-Client-Secret", NaverClientSecret)
+                .build();
+
+        ResponseEntity<NaverRegionResponse> responseEntity = restTemplate.exchange(requestEntity, NaverRegionResponse.class);
+        return ResponseEntity.ok().body(responseEntity.getBody());
+    }
+}
+
+package com.gusami.naveropenapitest.dto;
+....
+@Data
+@NoArgsConstructor
+public class NaverRegionResponse {
+    //private LocalDateTime lastBuildDate;
+    private int total;
+    private int start;
+    private int display;
+    private Item[] items;
+    @Data
+    @NoArgsConstructor
+    public static class Item {
+        private String category;
+        private String title;
+        private String link;
+        private String description;
+        private String telephone;
+        private String address;
+        private String roadAddress;
+        private int mapx;
+        private int mapy;
+    }
+}
+```
+- 실행 결과
+![naver_open_api_region_output](./images/naver_open_api_region_output.png)
