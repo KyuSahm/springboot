@@ -5451,6 +5451,63 @@ class DollorCalculatorTest {
     }
 }
 ```
+## SpringBoot Application의 JUnit 실습
+- ``Spring Initializr``을 이용한 Gradle Project 생성
+  - Gradle Project
+  - Spring Boot 2.7.1
+  - Packaging: Jar
+  - Java 11 선택
+  - Dependency로 ``lombok, Spring Web`` 선택
+  - Artifact ``spring-calculator``
+  - package ``com.example.calculator``로 수정
+- 기본적으로 SpringBoot Application 프로젝트를 생성하면?
+  - ``org.springframework.boot:spring-boot-starter-test`` dependency가 테스트를 위해 포함됨
+    - Gradle을 살펴보면, ``spring-boot-starter-test`` 라이브러리는 아래의 Library들에 대한 dependency를 가짐
+      - ``org.junit.jupiter:junit-jupiter:5.8.2``
+      - ``org.mockito:mockito-core:4.5.1``
+      - ``org.mockito:mockito-junit-jupiter:4.5.1``
+  - test class의 ``useJUnitPlatform()`` 메소드를 가지고 있음
+```groovy
+.....
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+```
+- ``@SpringBootTest``: 실제 SpringBoot를 실행시켜서 서버를 기동한 후, 테스트를 진행
+```java
+package com.example.calculator;
+....
+@SpringBootTest
+class SpringCalculatorApplicationTests {
+
+	@Test
+	void contextLoads() {
+	}
+
+}
+```
+- ``@Import``: 한 개 이상의 ``Component`` 클래스를 Import하기 위해 사용
+  - 참조: https://www.baeldung.com/spring-import-annotation 
+- ``Mockito @Mock @MockBean @Spy @SpyBean`` 차이점
+  - https://cobbybb.tistory.com/16  
+```java
+package com.example.calculator.component;
+....
+@Import(MarketAPI.class)
+class DollorCalculatorTest {
+    @MockBean
+    private MarketAPI marketAPI;    
+}
+```
+10:30
+    
 
 
 
