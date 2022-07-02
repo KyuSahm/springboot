@@ -5132,3 +5132,326 @@ public class NaverRegionResponse {
 ```
 - 실행 결과
 ![naver_open_api_region_output](./images/naver_open_api_region_output.png)
+# JUnit 테스트
+- TDD(Test-driven Development)
+  - 테스트 주도 개발에서 사용
+  - 코드의 유지 보수 및 운영 환경에서의 에러를 미리 방지하기 위해서 단위 별로 검증
+- 단위 테스트
+  - 작성한 코드가 기대하는 대로 동작하는지 검증하는 절차
+- JUnit
+  - Java 기반의 단위 테스트를 위한 Framework
+  - Annotation 기반으로 Test를 지원하며, Assert를 통하여 ``(Expected Value, Real Value)``를 통해 검증
+## Java Application의 JUnit 실습
+### ``JUnit Juniper Test``를 위한 Annotation
+- ``@Before``(JUnit 4)와 ``@BeforeEach``(JUnit 5)
+  - Class 내에 존재하는 각각의 @Test를 실행하기 전에 매번 실행
+- ``@BeforeClass``(JUnit 4)와 ``@BeforeAll``(JUnit 5)
+  - 모든 테스트를 실행하기 전 딱 한번만 실행
+  - ``static``으로 선언해야 함
+- ``@After``(JUnit 4)와 ``@AfterEach``(JUnit 5)
+  - Class 내에 존재하는 각각의 @Test를 실행한 후, 매번 실행
+- ``@AfterClass``(JUnit 4)와 ``@AfterAll``(JUnit 5)
+  - 모든 테스트를 실행한 후, 한번만 실행
+  - ``static``으로 선언해야 함
+- ``@Disabled``
+  - 특정 메소드가 ``@Deprecated`` 되었거나, 테스트에 확실히 passed되는 경우가 아닐때 실행되지 않도록 처리하는 부분
+  - 에러를 수정하거나 테스트를 제거하는 등 확실한 처리가 더 중요하지 @Disabled를 그대로 두는 것은 좋지 않음
+- 예제  
+```java
+public class Test {
+
+    @BeforeAll
+    public static void beforeAll() {
+        System.out.println("@BeforeAll");
+    }
+
+    @BeforeEach
+    public void beforeEach() {
+        System.out.println("@BeforeEach");
+    }
+
+    @Test
+    public void test1(){
+        System.out.println("@Test 1");
+    }
+
+    @Test
+    public void test2(){
+        System.out.println("@Test 2");
+    }
+
+    @AfterEach
+    public void afterEach() {
+        System.out.println("@AfterEach");
+    }
+
+    @AfterAll
+    public static void afterAll() {
+        System.out.println("@AfterAll");
+    }
+}
+```
+- 전체 플로우
+```bash
+@BeforeAll
+
+@BeforeEach
+@Test 1
+@AfterEach
+
+@BeforeEach
+@Test 2
+@AfterEach
+
+@AfterAll
+```
+### 실습
+- Java New Project 생성
+  - IntelliJ > New Project > Gradle > Java (Project SDK: Java 11) > Project Name: ``calculator``
+- 아래와 같은 ``build.gradle`` 파일이 자동 생성
+  - Junit Test를 위한 ``jupiter library``가 이미 dependencies에 포함되어 있음
+  - ``test`` 메소드에 ``useJUnitPlatform()`` lambda 함수가 선언되어 있어야 함
+```groovy
+plugins {
+    id 'java'
+}
+
+group 'org.example'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
+}
+
+test {
+    useJUnitPlatform()
+}
+```
+- ``JUnit Test``를 원하는 Method에 ``@Test`` annotation을 붙여 줌  
+```java
+package impl;
+....
+class DollorCalculatorTest {
+    @Test
+    public void dollorTest() {
+        MarketAPI marketAPI = new MarketAPI();
+        Operator operator = new Operator(new DollorCalculator(marketAPI));
+
+        Assertions.assertEquals(24000, operator.operateSum(10, 10));
+        Assertions.assertEquals(0, operator.operateMinus(10, 10));
+    }
+}
+```
+- ``MarketAPI``에서 제공하는 ``getRealTimeRatio()``의 반환 값이 달라질 수 있기 때문에, 해당 Object를 Mocking 처리를 해서 반환 값을 달리 가져갈 수 있음    
+- Mocking을 위해서 ``Mockito``를 사용
+  - Step 1: ``maven repository``에서 검색해서 ``Mockito Core``와 ``Mockito JUnit Jupiter``를 적용해야 함
+  - Step 2: ``gradle`` 새로고침한 후, Gradle의 ``Dependencies`` 항목을 확인
+  - Step 3: ``Test class``에 ``@ExtendWith(MockitoExtension.class)``를 annotate 처리 
+  - Step 4: Mocking을 원하는 Object를 Field로 정의한 후, ``@Mock`` annotation 처리
+  - Step 5: ``@BeforeEach``와 ``@BeforeAll`` Annotation을 이용하여 테스트 실행전에 mock object의 method에 대한 리턴 값을 바꿔줄 수 있음
+```groovy
+....
+dependencies {
+    ....
+    testImplementation 'org.mockito:mockito-core:4.6.1'
+    testImplementation 'org.mockito:mockito-junit-jupiter:4.6.1'
+    ....
+}
+....
+```
+```java
+package impl;
+....
+@ExtendWith(MockitoExtension.class)
+class DollorCalculatorTest {
+    @Mock
+    public MarketAPI marketAPI;
+
+    @BeforeEach
+    public void init() {
+        Mockito.lenient().when(marketAPI.getRealTimeRatio()).thenReturn(3000);
+    }    
+
+    @Test
+    public void mockTest() {
+        MarketAPI marketAPI = new MarketAPI();
+        Operator operator = new Operator(new DollorCalculator(marketAPI));
+
+        Assertions.assertEquals(marketAPI.getRealTimeRatio() * 20,
+                operator.operateSum(10, 10));
+        Assertions.assertEquals(0, operator.operateMinus(10, 10));
+    }
+}
+```
+- 전체 소스
+```groovy
+plugins {
+    id 'java'
+}
+
+group 'org.example'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
+    testImplementation 'org.mockito:mockito-core:4.6.1'
+    testImplementation 'org.mockito:mockito-junit-jupiter:4.6.1'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
+}
+
+test {
+    useJUnitPlatform()
+}
+```
+```java
+....
+public class Main {
+    public static void main(String[] args) {
+        Operator operator = new Operator(new KRWCalculator());
+
+        System.out.println("KRW Sum Result:" + operator.operateSum(10, 10));
+        System.out.println("KRW Minus Result:" + operator.operateMinus(10, 10));
+
+        MarketAPI marketAPI = new MarketAPI();
+        operator = new Operator(new DollorCalculator(marketAPI));
+        System.out.println("Dollor Sum Result:" + operator.operateSum(10, 10));
+        System.out.println("Dollor Minus Result:" + operator.operateMinus(10, 10));
+    }
+}
+
+package intf;
+
+public interface Calculator {
+    int sum(int x, int y);
+    int minus(int x, int y);
+}
+
+package impl;
+public class MarketAPI {
+    protected int getRealTimeRatio() {
+        // get ratio from naver, kakao
+        return 1200;
+    }
+}
+
+package impl;
+....
+public class DollorCalculator implements Calculator {
+    private int ratio;
+    private MarketAPI marketAPI;
+
+    public DollorCalculator(MarketAPI marketAPI) {
+        this.marketAPI = marketAPI;
+        init();
+    }
+
+    private void init() {
+        this.ratio = marketAPI.getRealTimeRatio();
+    }
+
+    @Override
+    public int sum(int x, int y) {
+        x *= ratio;
+        y *= ratio;
+
+        return x + y;
+    }
+
+    @Override
+    public int minus(int x, int y) {
+        x *= ratio;
+        y *= ratio;
+
+        return x - y;
+    }
+}
+
+package impl;
+....
+public class KRWCalculator implements Calculator {
+    private int ratio = 1;
+    @Override
+    public int sum(int x, int y) {
+        x *= ratio;
+        y *= ratio;
+
+        return x + y;
+    }
+
+    @Override
+    public int minus(int x, int y) {
+        x *= ratio;
+        y *= ratio;
+
+        return x - y;
+    }
+}
+
+package impl;
+....
+public class Operator {
+    private Calculator calculator;
+
+    public Operator(Calculator calculator) {
+        this.calculator = calculator;
+    }
+
+    public int operateSum(int x, int y) {
+        return calculator.sum(x, y);
+    }
+
+    public int operateMinus(int x, int y) {
+        return calculator.minus(x, y);
+    }
+}
+
+package impl;
+....
+@ExtendWith(MockitoExtension.class)
+class DollorCalculatorTest {
+    @Mock
+    public MarketAPI marketAPI;
+
+    @BeforeEach
+    public void init() {
+        Mockito.lenient().when(marketAPI.getRealTimeRatio()).thenReturn(3000);
+    }
+
+    @Test
+    public void testHello() {
+        System.out.println("hello");
+    }
+
+    @Test
+    public void dollorTest() {
+        MarketAPI marketAPI = new MarketAPI();
+        Operator operator = new Operator(new DollorCalculator(marketAPI));
+
+        Assertions.assertEquals(24000, operator.operateSum(10, 10));
+        Assertions.assertEquals(0, operator.operateMinus(10, 10));
+    }
+
+    @Test
+    public void mockTest() {
+        MarketAPI marketAPI = new MarketAPI();
+        Operator operator = new Operator(new DollorCalculator(marketAPI));
+
+        Assertions.assertEquals(marketAPI.getRealTimeRatio() * 20,
+                operator.operateSum(10, 10));
+        Assertions.assertEquals(0, operator.operateMinus(10, 10));
+    }
+}
+```
+
+
+
+
