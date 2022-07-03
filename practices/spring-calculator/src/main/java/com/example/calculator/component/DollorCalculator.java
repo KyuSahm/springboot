@@ -1,19 +1,17 @@
 package com.example.calculator.component;
 
 import com.example.calculator.intf.Calculator;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class DollorCalculator implements Calculator {
     private int ratio;
     private final MarketAPI marketAPI;
 
-    public DollorCalculator(MarketAPI marketAPI) {
-        this.marketAPI = marketAPI;
-        init();
-    }
-
-    private void init() {
+    @Override
+    public void init() {
         this.ratio = marketAPI.getRealTimeRatio();
     }
 

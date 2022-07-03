@@ -9,6 +9,10 @@ import org.springframework.stereotype.Component;
 public class Operator {
     private final Calculator calculator;
 
+    public void operateInit() {
+        calculator.init();
+    }
+
     public int operateSum(int x, int y) {
         return calculator.sum(x, y);
     }

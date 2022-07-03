@@ -5493,22 +5493,581 @@ class SpringCalculatorApplicationTests {
 
 }
 ```
-- ``@Import``: 한 개 이상의 ``Component`` 클래스를 Import하기 위해 사용
+- Unit Test 작성 원칙
+  - Fast
+    - 단위 테스트는 가능한 빠르게 실행되어야 한다
+    - 너무 느려 테스트 실행을 꺼리게 된다면 잘못된 테스트임
+  - Independent
+    - 단위 테스트는 ``객체의 상태, 메소드, 이전 테스트 상태, 다른 메소드의 결과`` 등에 의존해서는 안됨
+    - 단위 테스트는 어떠한 순서로 실행되더라도 성공해야 함
+  - Repeatable
+    - 단위 테스트는 반복 가능해야 함
+    - DB에 의존하게 되는 현상과 같이 여러 번 실행하는 경우 실패하면 안됨
+  -
+  - 참조 링크
+    - https://galid1.tistory.com/772
+    - https://dzone.com/articles/writing-your-first-unit-tests
+    
+- ``@Import``: 한 개 이상의 ``Component`` 클래스를 Spring Context로 Import하기 위해 사용
   - 참조: https://www.baeldung.com/spring-import-annotation 
-- ``Mockito @Mock @MockBean @Spy @SpyBean`` 차이점
-  - https://cobbybb.tistory.com/16  
+  - 주로, 특정 ``@Configuration`` 클래스에서 다른 ``@Configuration`` 클래스들을 불러들이기 위해서 사용
+- Test Mocking ``Mockito`` 라이브러리 사용법
+  - https://jiwondev.tistory.com/185?category=874354  
+- Mockito의 ``@Mock @MockBean @Spy @SpyBean`` Annotation 차이점
+  - https://cobbybb.tistory.com/16
+  - ``@Mockbean``
+    - ``org.springframework.boot.test.mock.mockito.MockBean``에 존재
+    - 경로를 봐도 알 수 있듯이 ``@Mock``과는 다르게 spring 영역에 있는 어노테이션
+    - ``@MockBean``은 Spring Context에 mock객체를 등록하게 되고, 스프링 컨텍스트에 의해 ``@Autowired``가 동작할 때 등록된 mock객체를 사용할 수 있도록 동작
+- Service Layer 테스트 작성 방법
+  - ``@SpringBootTest``를 사용하지 않는 것이 좋음
+  - https://galid1.tistory.com/772
+- 특정 Service 테스트 실습
+  - 개선필요: ``@SpringBootTest``를 사용하지 않는 것이 좋음
+    - 참조링크: https://galid1.tistory.com/772
+  - Bean을 만들 때 아래와 같이 구분
+    - ``@MockBean``: 모든 메소드를 Mock으로 동작시킴
+    - ``@SpykBean``: 특정 메소드를 Mock으로 동작시킴
+    - ``@Autowired``: 모든 메소드를 실제 Bean으로 동작시킴
 ```java
 package com.example.calculator.component;
 ....
-@Import(MarketAPI.class)
-class DollorCalculatorTest {
+@SpringBootTest
+// @Import({MarketAPI.class, DollorCalculator.class})
+class OperatorTest {
     @MockBean
-    private MarketAPI marketAPI;    
+    private MarketAPI marketAPI;
+
+    @Autowired
+    private Calculator calculator;
+
+    @BeforeEach
+    public void init() {
+        Mockito.lenient().when(marketAPI.getRealTimeRatio()).thenReturn(2000);
+        calculator.init();
+    }
+
+    @Test
+    public void dollarCalculatorTest() {
+        int sum = calculator.sum(10, 10);
+        Assertions.assertEquals(40000, sum);
+
+        int minus = calculator.minus(10, 10);
+        Assertions.assertEquals(0, minus);
+    }
 }
 ```
-10:30
-    
+- Controller Layer 테스트 작성 방법
+  - ``@WebMvcTest`` annotation 사용
+    - Spring Application Context를 완전하게 Start 시키지 않고, web layer를 테스트 하고 싶을 때 고려
+      - Using this annotation will disable full auto-configuration and instead apply only configuration relevant to MVC tests
+      - 포함되는 Bean: ``@Controller, @ControllerAdvice, @JsonComponent, Converter/GenericConverter, Filter, WebMvcConfigurer and HandlerMethodArgumentResolver beans``
+      - 포함되지 않는 Bean: ``@Component, @Service or @Repository beans``
+    - Present Layer 관련 컴포넌트만 스캔을 함
+    - Service, Repository dependency가 필요한 경우에는 ``@MockBean``으로 주입받아 테스트를 진행
+    - ``@SpringBootTest``의 경우 모든 Bean을 로드하기 때문에 테스트 구동 시간이 오래 걸리고, 테스트 단위가 크기 때문에 디버깅이 어려움
+    - Controller Layer만 Slice Test 하고 싶을 때에는 ``@WebMvcTest``를 쓰는게 유용
+  - ``MockMvc``
+    - Application을 배포하지 않고도, Server의 MVC 동작을 테스트 할 수 있는 라이브러리
+    - 주로 Controller 레이어 단위테스트에 많이 사용
+  - ``@MockBean``
+    - 말 그래도 가짜 객체
+    - 해당 단위 테스트에만 집중할 수 있도록 도와줌
+    - 여기서는 서비스를 ``MockBean``으로 선언하였고, 서비스 내 의존성 연결고리를 신경 안써도 되며, 서비스의 호출, 결과를 임의로 조작하여 테스트를 지원
+  - 참조 링크: https://gom20.tistory.com/123  
+ ```java
+@WebMvcTest(ContentController.class)
+class ContentControllerTest {
 
+    @Autowired
+    private MockMvc mockMvc;
 
+    @MockBean
+    private ContentService contentService;
 
+    protected MediaType contentType =
+            new MediaType(MediaType.APPLICATION_JSON.getType(), MediaType.APPLICATION_JSON.getSubtype(), StandardCharsets.UTF_8);
 
+    @DisplayName("[API][GET] 게시글 리스트 조회")
+    @Test
+    void testGetAllContents() throws Exception {
+        //given
+        given(contentService.getAllContents())
+                .willReturn(Arrays.asList(ContentDTO.builder()
+                        .id(1L)
+                        .name("user1")
+                        .title("title1")
+                        .build()));
+
+        //when & then
+        mockMvc.perform(get("/contents"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data[0].name").value("user1"))
+                .andExpect(jsonPath("$.data[0].title").value("title1"))
+                .andExpect(jsonPath("$.code").value(ErrorCode.OK.getCode()))
+                .andExpect(jsonPath("$.message").value(ErrorCode.OK.getMessage()));
+    }
+
+    @DisplayName("[API][GET] 게시글 상세 조회")
+    @Test
+    void testGetContentDetail() throws Exception {
+        //given
+        given(contentService.getContentDetail(any()))
+                .willReturn(ContentDetailDTO.builder()
+                        .id(1L)
+                        .name("user1")
+                        .title("title1")
+                        .content("content1")
+                        .build());
+
+        //when & then
+        mockMvc.perform(get("/contents/1"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.data.name").value("user1"))
+                .andExpect(jsonPath("$.data.title").value("title1"))
+                .andExpect(jsonPath("$.data.content").value("content1"))
+                .andExpect(jsonPath("$.code").value(ErrorCode.OK.getCode()))
+                .andExpect(jsonPath("$.message").value(ErrorCode.OK.getMessage()));
+    }
+
+    @DisplayName("[API][POST] 게시글 등록")
+    @Test
+    void testCreateContent() throws Exception {
+        //given
+        given(contentService.createContent(any()))
+                .willReturn(CreateContent.Response.builder()
+                        .name("user1")
+                        .title("title1")
+                        .content("content1")
+                        .build());
+        //when & then
+        mockMvc.perform(post("/contents")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .characterEncoding("UTF-8")
+                        .content(
+                                "{ \"name\" : \"user1\", \"title\" : \"test1\", \"content\": \"content1\"}"
+                        ))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.data.name").value("user1"))
+                .andExpect(jsonPath("$.data.title").value("title1"))
+                .andExpect(jsonPath("$.data.content").value("content1"))
+                .andExpect(jsonPath("$.code").value(ErrorCode.OK.getCode()))
+                .andExpect(jsonPath("$.message").value(ErrorCode.OK.getMessage()));
+    }
+
+    @DisplayName("[API][PUT] 게시글 수정")
+    @Test
+    void testUpdateContent() throws Exception {
+        //given
+        given(contentService.updateContent(any(), any()))
+                .willReturn(ContentDetailDTO.builder()
+                        .name("user1")
+                        .title("title2")
+                        .content("content2")
+                        .build());
+        //when & then
+        mockMvc.perform(put("/contents/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .characterEncoding("UTF-8")
+                        .content(
+                                "{ \"name\" : \"user1\", \"title\" : \"test2\", \"content\": \"content2\"}"
+                        ))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.data.name").value("user1"))
+                .andExpect(jsonPath("$.data.title").value("title2"))
+                .andExpect(jsonPath("$.data.content").value("content2"))
+                .andExpect(jsonPath("$.code").value(ErrorCode.OK.getCode()))
+                .andExpect(jsonPath("$.message").value(ErrorCode.OK.getMessage()));
+    }
+
+    @DisplayName("[API][DELETE] 게시글 삭제")
+    @Test
+    void testDeleteContent() throws Exception {
+        //given
+        given(contentService.deleteContent(any()))
+                .willReturn(ContentDetailDTO.builder()
+                        .name("user1")
+                        .title("title2")
+                        .content("content2")
+                        .build());
+        //when & then
+        mockMvc.perform(delete("/contents/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .characterEncoding("UTF-8"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.data.name").value("user1"))
+                .andExpect(jsonPath("$.data.title").value("title2"))
+                .andExpect(jsonPath("$.data.content").value("content2"))
+                .andExpect(jsonPath("$.code").value(ErrorCode.OK.getCode()))
+                .andExpect(jsonPath("$.message").value(ErrorCode.OK.getMessage()));
+    }
+
+    @DisplayName("[API][PUT][ERROR] 게시글 수정 / 제목 공란")
+    @Test
+    void givenInvalidParameter_whenRequestingUpdateContent_thenReturnsErorr() throws Exception {
+        //given
+        given(contentService.updateContent(any(), any()))
+                .willThrow(new GeneralException(ErrorCode.BAD_REQUEST));
+        //when & then
+        mockMvc.perform(put("/contents/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .characterEncoding("UTF-8")
+                        .content(
+                                "{ \"name\" : \"user1\", \"content\": \"content2\"}"
+                        ))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.code").value(ErrorCode.SPRING_INTERNAL_ERROR.getCode()))
+                .andExpect(jsonPath("$.message").value(ErrorCode.SPRING_INTERNAL_ERROR.getMessage()));
+    }
+
+    @DisplayName("[API][POST][ERROR] 게시글 등록 / 이름 사이즈 초과")
+    @Test
+    void givenBlankName_whenRequestingCreateContent_thenReturnsErorr() throws Exception {
+        //given
+        given(contentService.createContent(any()))
+                .willThrow(new GeneralException(ErrorCode.BAD_REQUEST));
+        //when & then
+        mockMvc.perform(post("/contents")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .characterEncoding("UTF-8")
+                        .content(
+                                "{ \"name\" : \"user1234567891011111\", \"title\" : \"test2\", \"content\": \"content2\"}"
+                        ))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.code").value(ErrorCode.SPRING_INTERNAL_ERROR.getCode()))
+                .andExpect(jsonPath("$.message").value(ErrorCode.SPRING_INTERNAL_ERROR.getMessage()));
+    }
+}
+ ```  
+- 특정 Controller 테스트 실습
+  - ``@WebMvcTest(CalculatorApiController.class)``
+    - ``CalculatorApiController.class``
+      - CalculatorApiController와 관련된 Presentation Layer Bean들로 context를 구성
+  - ``@Import({Operator.class, DollorCalculator.class})``
+    - ``@Component`` annotation된 클래스들은 context에 포함되지 않았기 때문에, 강제로 Context에 Bean들을 Import 처리
+  - ``MockMvc``
+    - 서버의 MVC 동작을 대신 해주는 라이브러리
+    - Method (``Get, Post, Put, Delete``)에 따라 사용하는 방법이 약간 다름
+      - ``Get과 Delete``는 동일
+      - ``Post와 Put``은 동일
+  - ``@MockBean``
+    - MarketAPI 객체만 Mock 형태로 사용하고, 나머지는 진짜 Bean들을 사용한다는 얘기
+```java
+package com.example.calculator.controller;
+.....
+@WebMvcTest(CalculatorApiController.class)
+@Import({Operator.class, DollorCalculator.class})
+class CalculatorApiControllerTest {
+    // 아래의 형태로 작성시 context에 존재하지 않으므로, 에러 발생
+    // @Autowired
+    // Operator operator;
+
+    @MockBean
+    private MarketAPI marketAPI;
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @BeforeEach
+    public void init() {
+        Mockito.when(marketAPI.getRealTimeRatio()).thenReturn(3000);
+    }
+
+    @Test
+    public void sumTestOnGet() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders.get("http://localhost:8080/api/sum")
+                        .queryParam("x", "10")
+                        .queryParam("y", "10"))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.content().string("60000"))
+                .andDo(MockMvcResultHandlers.print());
+    }
+
+    @Test
+    public void sumTestOnPost() throws Exception {
+        Request request = new Request(20, 20);
+        String jsonRequest = new ObjectMapper().writeValueAsString(request);
+
+        mockMvc.perform(MockMvcRequestBuilders.post("http://localhost:8080/api/sum")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonRequest))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.status").value("ok"))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.body.result").value(120000))
+                .andDo(MockMvcResultHandlers.print());
+    }
+}
+```
+- 전체 실습 코드
+```groovy
+plugins {
+	id 'org.springframework.boot' version '2.7.1'
+	id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+	id 'java'
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '11'
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+```
+```java
+package com.example.calculator.component;
+....
+@SpringBootTest
+// @Import({MarketAPI.class, DollorCalculator.class})
+class OperatorTest {
+    @MockBean
+    private MarketAPI marketAPI;
+
+    @Autowired
+    private Calculator calculator;
+
+    @BeforeEach
+    public void init() {
+        Mockito.lenient().when(marketAPI.getRealTimeRatio()).thenReturn(2000);
+        calculator.init();
+    }
+
+    @Test
+    public void dollarCalculatorTest() {
+        int sum = calculator.sum(10, 10);
+        Assertions.assertEquals(40000, sum);
+
+        int minus = calculator.minus(10, 10);
+        Assertions.assertEquals(0, minus);
+    }
+}
+
+package com.example.calculator.controller;
+....
+@WebMvcTest(CalculatorApiController.class)
+@Import({Operator.class, DollorCalculator.class})
+class CalculatorApiControllerTest {
+    // 아래의 형태로 작성시 context에 존재하지 않으므로, 에러 발생
+    // @Autowired
+    // Operator operator;
+
+    @MockBean
+    private MarketAPI marketAPI;
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @BeforeEach
+    public void init() {
+        Mockito.when(marketAPI.getRealTimeRatio()).thenReturn(3000);
+    }
+
+    @Test
+    public void sumTestOnGet() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders.get("http://localhost:8080/api/sum")
+                        .queryParam("x", "10")
+                        .queryParam("y", "10"))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.content().string("60000"))
+                .andDo(MockMvcResultHandlers.print());
+    }
+
+    @Test
+    public void sumTestOnPost() throws Exception {
+        Request request = new Request(20, 20);
+        String jsonRequest = new ObjectMapper().writeValueAsString(request);
+
+        mockMvc.perform(MockMvcRequestBuilders.post("http://localhost:8080/api/sum")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonRequest))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.status").value("ok"))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.body.result").value(120000))
+                .andDo(MockMvcResultHandlers.print());
+    }
+}
+
+package com.example.calculator;
+....
+@SpringBootTest
+class SpringCalculatorApplicationTests {
+	@Test
+	void contextLoads() {
+	}
+}
+
+package com.example.calculator;
+....
+@SpringBootApplication
+public class SpringCalculatorApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(SpringCalculatorApplication.class, args);
+	}
+
+}
+
+package com.example.calculator.controller;
+....
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api")
+public class CalculatorApiController {
+    private final Operator operator;
+
+    @GetMapping("/sum")
+    public int sum(@RequestParam int x, @RequestParam int y)
+    {
+        operator.operateInit();
+        return operator.operateSum(x, y);
+    }
+
+    @GetMapping("/minus")
+    public int minus(@RequestParam int x, @RequestParam int y)
+    {
+        operator.operateInit();
+        return operator.operateMinus(x, y);
+    }
+
+    @PostMapping("/sum")
+    public Response sumPost(@RequestBody Request req)
+    {
+        operator.operateInit();
+        int result = operator.operateSum(req.getX(), req.getY());
+        return new Response("ok", new Response.Body(result));
+    }
+
+    @PostMapping("/minus")
+    public Response minusPost(@RequestBody Request req)
+    {
+        operator.operateInit();
+        int result = operator.operateMinus(req.getX(), req.getY());
+        return new Response("ok", new Response.Body(result));
+    }
+}
+
+package com.example.calculator.component;
+....
+@Component
+@RequiredArgsConstructor
+public class Operator {
+    private final Calculator calculator;
+
+    public void operateInit() {
+        calculator.init();
+    }
+
+    public int operateSum(int x, int y) {
+        return calculator.sum(x, y);
+    }
+
+    public int operateMinus(int x, int y) {
+        return calculator.minus(x, y);
+    }
+}
+
+package com.example.calculator.intf;
+
+public interface Calculator {
+    void init();
+    int sum(int x, int y);
+    int minus(int x, int y);
+}
+
+package com.example.calculator.component;
+....
+@Component
+@RequiredArgsConstructor
+public class DollorCalculator implements Calculator {
+    private int ratio;
+    private final MarketAPI marketAPI;
+
+    @Override
+    public void init() {
+        this.ratio = marketAPI.getRealTimeRatio();
+    }
+
+    @Override
+    public int sum(int x, int y) {
+        x *= ratio;
+        y *= ratio;
+
+        return x + y;
+    }
+
+    @Override
+    public int minus(int x, int y) {
+        x *= ratio;
+        y *= ratio;
+
+        return x - y;
+    }
+}
+
+package com.example.calculator.component;
+....
+@Component
+public class MarketAPI {
+    public int getRealTimeRatio() {
+        // get ratio from naver, kakao
+        return 1200;
+    }
+}
+
+package com.example.calculator.dto;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class Request {
+    private int x;
+    private int y;
+}
+
+package com.example.calculator.dto;
+....
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class Response {
+    private String status = "ok";
+    private Body body;
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class Body {
+        private int result;
+    }
+}
+```
