@@ -6071,3 +6071,27 @@ public class Response {
     }
 }
 ```
+### Jacoco를 통한 Test Coverage 확인
+- Jacoco
+  - Java Code의 Code Coverage를 체크하는 라이브러리
+  - 결과를 html, xml, csv로 확인이 가능
+#### 실습
+- ``build.gradle`` 파일 수정
+  - ``plugins id``에 ``jacoco``를 추가
+  - ``Gradle``의 ``Task`` 항목에 아래의 항목이 추가됨
+    - Tasks > verification > jaacocoTestCoverageVerification
+    - Tasks > verification > jaacocoTestReport
+```groovy
+plugins {
+    ....
+	id 'jacoco'
+}
+....
+```    
+- Jacoco의 Report를 얻기
+  - ``Tasks > verification > test``가 먼저 실행되어야 함
+  - ``Project`` 창에서 ``build > reports > tests > test``의 index.html을 브라우저로 열면 테스트 결과가 표시됨
+![junit_report](./images/junit_report.png)
+  - ``Tasks > verification > jacocoTestReport`` 실행
+  - ``Project`` 창에서 ``build > reports > jacoco > test > html``의 index.html을 브라우저로 열면 Test Coverage가 표시됨
+![junit_code_coverage_report](./images/junit_code_coverage_report.png)   
