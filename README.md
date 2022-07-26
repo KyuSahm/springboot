@@ -172,6 +172,35 @@
 - 스프링 프로젝트 생성 방법 (Spring Initializer - https://start.spring.io)
 ![Spring_Initializer](./images/Spring_Initializer.png)
   - 프로젝트 생성 후, 다운로드 받아서 IntelliJ에서 Import하면 됨
+## Spring Boot Library Dependency
+- 사용자가 Spring Boot 라이브러리에 대해서 버전을 명시하면, 의존성이 있는 다른 라이브러리들은 알아서 필요한 버전을 다운로드 함
+  ```groovy
+  plugins {
+      id 'org.springframework.boot' version '2.6.7'
+      id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+      id 'java'
+  }
+
+  group = 'com.example'
+  version = '0.0.1-SNAPSHOT'
+  sourceCompatibility = '11'
+
+  repositories {
+      mavenCentral()
+  }
+
+  dependencies {
+      implementation 'org.springframework.boot:spring-boot-starter-web'
+      testImplementation 'org.springframework.boot:spring-boot-starter-test'
+  }
+
+  tasks.named('test') {
+      useJUnitPlatform()
+  }
+  ```
+- Spring Boot 라이브러리와 다른 라이브러리간의 의존성을 확인하는 방법 
+  - ``https://spring.io/`` 에 접속 > ``Project`` > ``Spring Boot`` > ``LEARN`` > ``Documentation`` > 특정 버전의 ``Reference Doc`` 선택 > ``Dependency Versions`` 선택
+![SpringBoot_Dependency](./images/SpringBoot_Dependency.png)
 ## Hello World API를 만들어 보기
 ### Rest Client 설치하기
 - Chrome Web Store > 스토어 검색 > rest api client
