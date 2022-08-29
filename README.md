@@ -6124,3 +6124,270 @@ plugins {
   - ``Tasks > verification > jacocoTestReport`` 실행
   - ``Project`` 창에서 ``build > reports > jacoco > test > html``의 index.html을 브라우저로 열면 Test Coverage가 표시됨
 ![junit_code_coverage_report](./images/junit_code_coverage_report.png)   
+# Swagger
+## Swagger이란?
+- 개발한 REST API를 편리하게 문서화해주고, 이를 통해서 관리 및 제3의 사용자가 편리하게 API를 호출해보고 테스트 할 수 있는 프로젝트
+- SpringBoot에서는 ``springfox-boot-starter``를 ``gradle dependencies``에 추가함으로써 사용 가능
+- **주의할 점은 운영환경과 같은 외부에 노출되면 안되는 곳에서 사용할 땐 주의해야 함**
+- Swagger Annotation
+  | Annotation | 의미 |
+  | --------- | ----------- |
+  | @Api | 클래스를 Swagger의 리소스로 표시 |
+  | @ApiOperation | 특정 경로의 Operation Http 메소드 설명 |
+  | @ApiParam | Operation Parameter에 Meta data 설명 |
+  | @ApiResponse | Operation의 응답 지정 |
+  | @ApiModelProperty | 모델의 속성 데이터를 설명 |
+  | @ApiImplicitParam | 메소드 단위의 오퍼레이션 파라미터를 설명 |
+  | @ApiImplicitParams |  |
+## Swagger 설정하기
+- 프로젝트 생성
+  - ``spring initializr``를 이용하여 ``swagger`` 프로젝트 생성
+    - ``lombok``과 ``Spring Web`` dependencies 추가
+    - ``maven repository`` > ``springfox boot starter`` > ``springfox boot starter``의 dependency를 ``build.gradle``에 추가
+      - ``springfox boot starter``가 최신 버전임
+      - ``implementation 'io.springfox:springfox-boot-starter:3.0.0'``
+        - ``gradle`` > ``Dependencies``에서 아래의 경로에 포함되어야 함
+          - ``compileClassPath``
+          - ``runtimeClassPath``
+          - ``testCompileClassPath``
+          - ``tersRuntimeClassPath``
+
+    ```groovy
+    plugins {
+        id 'org.springframework.boot' version '2.7.3'
+        id 'io.spring.dependency-management' version '1.0.13.RELEASE'
+        id 'java'
+    }
+
+    group = 'com.example'
+    version = '0.0.1-SNAPSHOT'
+    sourceCompatibility = '11'
+
+    configurations {
+        compileOnly {
+            extendsFrom annotationProcessor
+        }
+    }
+
+    repositories {
+        mavenCentral()
+    }
+
+    dependencies {
+        implementation 'org.springframework.boot:spring-boot-starter-web'
+        implementation 'io.springfox:springfox-boot-starter:3.0.0'
+        compileOnly 'org.projectlombok:lombok'
+        annotationProcessor 'org.projectlombok:lombok'
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    }
+
+    tasks.named('test') {
+        useJUnitPlatform()
+    }
+    ```
+## Swagger 실습
+- Step 01: ``Controller`` Class 정의
+```java
+package com.example.swagger.controller;
+....
+@RestController
+@RequestMapping("/api")
+public class ApiController {
+    @GetMapping("/hello")
+    public String hello() {
+        return "hello";
+    }
+}
+```
+- Step 02: ``SwaggerApplication`` 시작: 에러 발생
+    
+  ```bash
+  ...
+  org.springframework.context.ApplicationContextException: Failed to start bean 'documentationPluginsBootstrapper'; nested exception is java.lang.NullPointerException
+      at org.springframework.context.support.DefaultLifecycleProcessor.doStart(DefaultLifecycleProcessor.java:181) ~[spring-context-5.3.22.jar:5.3.22]
+  ...
+  ```  
+  - Spring boot 2.6버전 이후에 ``spring.mvc.pathmatch.matching-strategy`` 값이 ``ant_path_matcher``에서 ``path_pattern_parser``로 변경되면서 몇몇 라이브러리(swagger포함)에 오류가 발생
+    - ``application.yml``
+    ```yaml
+    spring:
+    mvc:
+      pathmatch:
+        matching-strategy: ant_path_matcher
+    ```
+- Step 03: ``SwaggerApplication`` 시작 후, swagger api에 접속
+  - ``http://localhost:8080/swagger-ui/``
+![swagger_url](./images/swagger_url.png)
+![swagger_hello](./images/swagger_hello.png)
+- Step 04: ``@Api`` annotation을 class에 적용
+  - 해당 클래스를 Swagger의 Resource로 Mark
+  ```java
+  package com.example.swagger.controller;
+  .....
+  @Api(tags = {"Sample APIs"})
+  @RestController
+  @RequestMapping("/api")
+  public class ApiController {
+      @GetMapping("/hello")
+      public String hello() {
+          return "hello";
+      }
+  }
+  ```
+  ![swagger_Api_annotation](./images/swagger_Api_annotation.png)
+- Step 05: ``plus()`` api 추가
+  - ``@PathVariable``와 ``@RequestParam``을 동시에 사용
+  ```java
+  package com.example.swagger.controller;
+  ....
+  @Api(tags = {"Sample APIs"})
+  @RestController
+  @RequestMapping("/api")
+  public class ApiController {
+      ....
+      @GetMapping("/plus/{x}")
+      public int plus(@PathVariable int x, @RequestParam int y) {
+          return x + y;
+      }
+  }
+  ```
+  ![swagger_plus_1](./images/swagger_plus_1.png)
+- Step 05-1
+  - ``@ApiParam``을 이용하여 파라메터 메터 값 명시
+    - ``value``: A brief description of the parameter
+    - ``defaultValue``: 파라메터의 초기값. 별 의미 없음
+  ```java
+  package com.example.swagger.controller;
+  ....
+
+  @Api(tags = {"Sample APIs"})
+  @RestController
+  @RequestMapping("/api")
+  public class ApiController {
+      ....
+      @GetMapping("/plus/{x}")
+      public int plus(
+              @ApiParam(value = "x값", defaultValue = "20")
+              @PathVariable int x,
+              @ApiParam(value = "y값", defaultValue = "5")
+              @RequestParam int y) {
+          return x + y;
+      }
+  }
+  ```
+  - ``@ApiImplicitParams``을 이용하여 파라메터 메터 값 명시
+  ```java
+  package com.example.swagger.controller;
+  ....
+  @Api(tags = {"Sample APIs"})
+  @RestController
+  @RequestMapping("/api")
+  public class ApiController {      
+      @ApiImplicitParams({
+              @ApiImplicitParam(name = "x", value = "x값", required = true, dataType = "int", paramType = "path"),
+              @ApiImplicitParam(name = "y", value = "y값", required = true, dataType = "int", paramType = "query")
+      })
+      @GetMapping("/plus/{x}")
+      public int plus(
+              @PathVariable int x,              
+              @RequestParam int y) {
+          return x + y;
+      }
+  }
+  ```
+  ![swagger_plus_2](./images/swagger_plus_2.png)
+- Step 06: DTO를 사용해서 Get Method하는 경우
+  - ``@ApiModelProperty``: DTO Class의 field에 메타 정보를 추가
+    - ``value()``: A brief description of this property
+    - ``required()``: Specifies if the parameter is required or not
+    - ``example()``: A sample value for the property
+  - ``@ApiOperation``: 메소드의 Description
+  ```java
+  package com.example.swagger.dto;
+  ....
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public class UserRequest {
+      @ApiModelProperty(value = "사용자의 이름", example = "steve", required = true)
+      private String name;
+      @ApiModelProperty(value = "사용자의 나이", example = "20", required = true)
+      private int age;
+  }
+
+  package com.example.swagger.dto;
+  ....
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public class UserResponse {
+      @ApiModelProperty(value = "사용자의 이름", example = "steve", required = true)
+      private String name;
+      @ApiModelProperty(value = "사용자의 나이", example = "20", required = true)
+      private int age;
+  }
+
+  package com.example.swagger.controller;
+  ....
+  @Api(tags = {"Sample APIs"})
+  @RestController
+  @RequestMapping("/api")
+  public class ApiController {
+      @GetMapping("/hello")
+      public String hello() {
+          return "hello";
+      }
+
+      @GetMapping("/plus/{x}")
+      public int plus(
+              @ApiParam(value = "x값", defaultValue = "20")
+              @PathVariable int x,
+              @ApiParam(value = "y값", defaultValue = "5")
+              @RequestParam int y) {
+          return x + y;
+      }
+
+      @ApiOperation(value = "사용자의 이름과 나이를 리턴하는 메소드")
+      @GetMapping("/user")
+      public UserResponse getUser(UserRequest userRequest) {
+          return new UserResponse(userRequest.getName(), userRequest.getAge());
+      }
+  }
+  ```
+  ![swagger_user_1](./images/swagger_user_1.png)
+- Step 06-1: Response Code에 대한 정보를 추가 또는 변경하고자 하는 경우
+  - ``@ApiResponse``에 코드값과 메시지값을 명시
+  ```java
+  package com.example.swagger.controller;
+  ....
+  @Api(tags = {"Sample APIs"})
+  @RestController
+  @RequestMapping("/api")
+  public class ApiController {
+      ....
+      @ApiResponse(code = 502, message = "사용자의 나이가 10살 이하일 때")
+      @ApiOperation(value = "사용자의 이름과 나이를 리턴하는 메소드")
+      @GetMapping("/user")
+      public UserResponse getUser(UserRequest userRequest) {
+          return new UserResponse(userRequest.getName(), userRequest.getAge());
+      }
+  }
+  ```
+  ![swagger_user_2](./images/swagger_user_2.png)
+- Step 07: DTO를 사용해서 Post Method하는 경우
+  ```java
+  package com.example.swagger.controller;
+  ....
+  @Api(tags = {"Sample APIs"})
+  @RestController
+  @RequestMapping("/api")
+  public class ApiController {
+      @PostMapping("/user")
+      public UserResponse postUser(@RequestBody UserRequest userRequest) {
+          return new UserResponse(userRequest.getName(), userRequest.getAge());
+      }
+  }
+  ```
+  ![swagger_user_3](./images/swagger_user_3.png)
+
+# 네이버 지역검색 API를 활용한 맛집 List 만들기
