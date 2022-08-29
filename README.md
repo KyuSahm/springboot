@@ -199,7 +199,7 @@
   }
   ```
 - Spring Boot 라이브러리와 다른 라이브러리간의 의존성을 확인하는 방법 
-  - ``https://spring.io/`` 에 접속 > ``Project`` > ``Spring Boot`` > ``LEARN`` > ``Documentation`` > 특정 버전의 ``Reference Doc`` 선택 > ``Dependency Versions`` 선택
+  - ``https://spring.io/`` 에 접속 > ``Projects`` > ``Spring Boot`` > ``LEARN`` > ``Documentation`` > 특정 버전의 ``Reference Doc`` 선택 > ``Dependency Versions`` 선택
 ![SpringBoot_Dependency](./images/SpringBoot_Dependency.png)
 ## Hello World API를 만들어 보기
 ### Rest Client 설치하기
